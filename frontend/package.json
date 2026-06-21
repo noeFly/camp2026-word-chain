@@ -1,20 +1,39 @@
 {
-  "name": "frontend",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.3.0",
-      "onFail": "download"
-    }
-  },
-  "type": "module"
+	"name": "camp2026",
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"astro": "astro",
+		"build": "astro build",
+		"check": "astro check",
+		"dev": "astro dev",
+		"format:check": "prettier --check .",
+		"format:write": "prettier --write .",
+		"preinstall": "npx only-allow pnpm && husky",
+		"prepare": "husky",
+		"preview": "astro preview"
+	},
+	"dependencies": {
+		"@astrojs/sitemap": "^3.7.2",
+		"@tailwindcss/vite": "^4.2.2",
+		"animejs": "^4.3.6",
+		"astro": "^6.1.5",
+		"husky": "^9.1.7",
+		"tailwindcss": "^4.2.2"
+	},
+	"devDependencies": {
+		"@astrojs/check": "^0.9.8",
+		"@iconify-json/lucide": "^1.2.104",
+		"@iconify/json": "^2.2.467",
+		"prettier": "3.8.3",
+		"prettier-plugin-astro": "0.14.1",
+		"prettier-plugin-organize-imports": "^4.3.0",
+		"prettier-plugin-packagejson": "^3.0.2",
+		"prettier-plugin-tailwindcss": "^0.8.0",
+		"typescript": "^6.0.3",
+		"unplugin-icons": "^23.0.1"
+	},
+	"engines": {
+		"node": ">=22.12.0"
+	}
 }
