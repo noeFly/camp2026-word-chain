@@ -1,11 +1,24 @@
 ---
-import Welcome from "../components/Welcome.astro";
-import Layout from "../layouts/Layout.astro";
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import Layout from "@/layouts/Layout.astro"
+import ChevronRightIcon from '~icons/lucide/chevron-right';
 ---
 
 <Layout>
-	<Welcome />
+  <div class="flex h-dvh w-dvw flex-col items-center justify-center gap-y-4">
+    <h1 class="text-4xl font-bold">AI 謎題接龍</h1>
+    <p class="">請輸入你的組別編號登入。</p>
+    <div class="join">
+        <input
+          type="number"
+          required
+          min="1"
+          max="10"
+          title="請輸入組別編號"
+          class="input input-primary text-center join-item input-lg w-20"
+        />
+      <button class="btn join-item btn-primary btn-lg w-10">
+          <ChevronRightIcon />
+      </button>
+    </div>
+  </div>
 </Layout>
