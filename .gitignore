@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs / OS
+*.log
+.DS_Store
