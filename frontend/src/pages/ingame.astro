@@ -1,24 +1,725 @@
 ---
 import Layout from "@/layouts/Layout.astro"
-
-const title = "1+1=2"
-const previousText = "四二混凝土"
+import HourglassIcon from "~icons/lucide/hourglass"
+import PauseIcon from "~icons/lucide/pause"
+import PlayIcon from "~icons/lucide/play"
+import ZapIcon from "~icons/lucide/zap"
+import AwardIcon from "~icons/lucide/award"
+import RefreshCwIcon from "~icons/lucide/refresh-cw"
+import CheckCircleIcon from "~icons/lucide/check-circle"
+import AlertTriangleIcon from "~icons/lucide/alert-triangle"
 ---
 
 <Layout>
-  <div
-    class="radial-progress bg-primary text-primary-content fixed top-5 text-4xl font-bold"
-    style="--value:50; --thickness: 0.5rem; --size: 10rem;"
-    role="progressbar">15s</div
-  >
-  <h2 class="text-4xl font-bold">{title}</h2>
-  <div class="divider"></div>
-  <h2 class="text-2xl font-bold">目前的進度</h2>
-  <p class="text-lg">{previousText}</p>
-  <div class="divider"></div>
-  <h2 class="text-2xl font-bold">作答區</h2>
-  <div class="join">
-    <input type="text" required class="join-item input input-primary input-lg" /></div
-  >
-  <button class="btn btn-primary btn-lg join-item px-8"> 送出 </button>
+  <div class="w-full max-w-5xl flex flex-col gap-y-6 px-2 md:px-0">
+    
+    <!-- Top Bar: Shared info across phases -->
+    <div class="navbar bg-base-300 rounded-2xl shadow-xl border border-primary/10 px-6 justify-between flex-wrap gap-2">
+      <div class="flex items-center gap-x-3">
+        <span class="badge badge-primary font-black" id="round-num-badge">Round -</span>
+        <h1 class="text-lg font-bold text-neutral-content" id="room-info">SITCON 接龍戰局</h1>
+      </div>
+      
+      <!-- Match Scores -->
+      <div class="flex items-center gap-x-4">
+        <div class="flex items-center gap-x-2">
+          <span class="text-info font-black text-sm">Team A (藍)</span>
+          <div class="join">
+            <span id="match-score-a" class="btn btn-xs btn-info font-mono font-bold no-animation">0</span>
+            <span class="btn btn-xs btn-disabled font-mono no-animation">:</span>
+            <span id="match-score-b" class="btn btn-xs btn-secondary font-mono font-bold no-animation">0</span>
+          </div>
+          <span class="text-secondary font-black text-sm">Team B (橘)</span>
+        </div>
+      </div>
+
+      <!-- Host Controls Panel (Floating/Integrated inside top bar if Host) -->
+      <div id="host-actions-panel" class="hidden flex items-center gap-x-2">
+        <span class="text-xs text-warning font-bold border border-warning/30 px-2 py-1 rounded bg-warning/5">HOST</span>
+        <button id="host-pause-btn" class="btn btn-xs btn-warning">
+          <PauseIcon class="w-3.5 h-3.5 mr-0.5" /> 暫停
+        </button>
+        <button id="host-resume-btn" class="btn btn-xs btn-success hidden">
+          <PlayIcon class="w-3.5 h-3.5 mr-0.5" /> 恢復
+        </button>
+        <button id="host-force-judge-btn" class="btn btn-xs btn-error">
+          <ZapIcon class="w-3.5 h-3.5 mr-0.5" /> 強制評審
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= PHASE 1: ROUND_INTRO ================= -->
+    <div id="phase-intro" class="hidden card bg-base-300 shadow-2xl border border-primary/20 p-8 text-center flex flex-col items-center gap-y-6">
+      <div class="text-primary font-black text-5xl tracking-widest animate-bounce">第 <span id="intro-round-num">-</span> 回合即將開始</div>
+      <div class="divider max-w-md mx-auto my-0"></div>
+      <p class="text-neutral-content/70 text-lg">AI 命題官即將揭曉本次戰局主題：</p>
+      <div class="p-6 bg-base-100 rounded-2xl border border-primary/15 max-w-xl shadow-inner">
+        <h2 id="intro-topic" class="text-2xl font-extrabold text-secondary tracking-wide">AI 出題生成中...</h2>
+      </div>
+      
+      <!-- Radial Countdown -->
+      <div class="flex flex-col items-center gap-y-2 mt-4">
+        <div id="intro-radial" class="radial-progress bg-primary/10 text-primary font-mono text-3xl font-black border-4 border-primary/20 shadow-lg" style="--value:100; --size:7rem; --thickness: 6px;" role="progressbar">
+          30s
+        </div>
+        <span class="text-xs text-neutral-content/50 font-bold">倒數結束後自動開始接龍</span>
+      </div>
+    </div>
+
+    <!-- ================= PHASE 2: CHAINING (The main gameplay) ================= -->
+    <div id="phase-chaining" class="hidden flex flex-col gap-y-6">
+      <!-- Topic Header -->
+      <div class="card bg-base-300 p-5 shadow-lg border border-primary/15 flex flex-col items-center">
+        <span class="text-xs text-primary/70 font-black tracking-wider uppercase mb-1">本次接龍主題</span>
+        <h2 id="chaining-topic" class="text-2xl font-extrabold text-neutral-content tracking-wide text-center">載入中...</h2>
+      </div>
+
+      <!-- Teams Parallel Chaining Lists -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Team A -->
+        <div class="card bg-base-300 shadow-xl border border-info/10">
+          <div class="card-body p-5">
+            <div class="flex justify-between items-center border-b border-info/20 pb-2 mb-4">
+              <span class="font-extrabold text-lg text-info">Team A (藍色小隊)</span>
+              <div id="timer-team-a" class="badge badge-info font-mono font-bold py-2.5 animate-pulse hidden">--s</div>
+            </div>
+            <div id="chain-list-a" class="space-y-2">
+              <!-- Chaining slots -->
+            </div>
+            <!-- Host skip btn A -->
+            <button id="skip-team-a-btn" class="btn btn-xs btn-outline btn-error mt-4 hidden w-full">主辦方：跳過此棒次 (Skip Team A)</button>
+          </div>
+        </div>
+
+        <!-- Team B -->
+        <div class="card bg-base-300 shadow-xl border border-secondary/10">
+          <div class="card-body p-5">
+            <div class="flex justify-between items-center border-b border-secondary/20 pb-2 mb-4">
+              <span class="font-extrabold text-lg text-secondary">Team B (橘色小隊)</span>
+              <div id="timer-team-b" class="badge badge-secondary font-mono font-bold py-2.5 animate-pulse hidden">--s</div>
+            </div>
+            <div id="chain-list-b" class="space-y-2">
+              <!-- Chaining slots -->
+            </div>
+            <!-- Host skip btn B -->
+            <button id="skip-team-b-btn" class="btn btn-xs btn-outline btn-error mt-4 hidden w-full">主辦方：跳過此棒次 (Skip Team B)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submission Box (Only active for current player's turn) -->
+      <div id="submit-panel" class="card bg-base-300 p-6 border border-primary/20 shadow-xl flex flex-col items-center gap-y-4">
+        <div id="submit-status-banner" class="flex items-center gap-x-2 text-base font-bold text-neutral-content">
+          <HourglassIcon class="w-5 h-5 animate-spin text-primary" />
+          <span id="submit-status-text">等待您的棒次作答中...</span>
+        </div>
+
+        <!-- Submit form (hidden by default, enabled dynamically) -->
+        <div id="submit-action-row" class="join w-full max-w-md hidden">
+          <input
+            id="answer-input"
+            type="text"
+            required
+            maxlength="5"
+            placeholder="請輸入剛好 5 個字"
+            class="input input-primary join-item input-lg w-full text-center font-extrabold text-2xl tracking-widest uppercase"
+          />
+          <button id="submit-btn" class="btn join-item btn-primary btn-lg px-8 font-black">
+            送出答案
+          </button>
+        </div>
+        <span id="submit-error" class="text-xs text-error font-medium min-h-[1.2rem]"></span>
+      </div>
+    </div>
+
+    <!-- ================= PHASE 3: JUDGING ================= -->
+    <div id="phase-judging" class="hidden card bg-base-300 shadow-2xl border border-primary/20 p-12 text-center flex flex-col items-center gap-y-6">
+      <RefreshCwIcon class="w-16 h-16 text-primary animate-spin" />
+      <h2 class="text-3xl font-black text-primary tracking-widest">⚖️ 公正 AI 評審分析中</h2>
+      <p class="text-neutral-content/70 max-w-lg leading-relaxed">
+        評審團正依據 <span class="font-bold text-secondary">邏輯性 (25%)</span>、<span class="font-bold text-secondary">符合度 (30%)</span>、<span class="font-bold text-secondary">完整性 (25%)</span> 及 <span class="font-bold text-secondary">創意性 (20%)</span> 進行精準打分，並生成繁體中文評語。請耐心等候...
+      </p>
+    </div>
+
+    <!-- ================= PHASE 4: ROUND_RESULT ================= -->
+    <div id="phase-result" class="hidden flex flex-col gap-y-6">
+      <!-- Winner Banner -->
+      <div class="card bg-base-300 p-6 shadow-xl border border-success/20 flex flex-col items-center text-center gap-y-2">
+        <AwardIcon class="w-12 h-12 text-warning animate-bounce" />
+        <span class="text-xs text-warning font-black tracking-widest uppercase">單回合評審結果</span>
+        <h2 class="text-4xl font-extrabold tracking-wide" id="result-winner-text">藍色小隊 (Team A) 獲勝！</h2>
+      </div>
+
+      <!-- Scores and Criteria Details -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Team A Breakdown -->
+        <div class="card bg-base-300 border border-info/20 shadow-xl">
+          <div class="card-body p-5">
+            <div class="flex justify-between items-center mb-4 border-b border-info/10 pb-2">
+              <span class="font-black text-lg text-info">藍色小隊 — Team A</span>
+              <span id="result-score-a" class="text-3xl font-black text-info font-mono">0 分</span>
+            </div>
+            
+            <!-- Progress sliders for criteria -->
+            <div class="space-y-3" id="criteria-breakdown-a">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Team B Breakdown -->
+        <div class="card bg-base-300 border border-secondary/20 shadow-xl">
+          <div class="card-body p-5">
+            <div class="flex justify-between items-center mb-4 border-b border-secondary/10 pb-2">
+              <span class="font-black text-lg text-secondary">橘色小隊 — Team B</span>
+              <span id="result-score-b" class="text-3xl font-black text-secondary font-mono">0 分</span>
+            </div>
+            
+            <!-- Progress sliders for criteria -->
+            <div class="space-y-3" id="criteria-breakdown-b">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Judge Reason bubble -->
+      <div class="card bg-base-300 border border-primary/10 shadow-xl p-6">
+        <h3 class="text-sm font-bold text-primary mb-2 uppercase tracking-wider">AI 評審講評與評估緣由</h3>
+        <blockquote id="result-reason" class="text-lg font-medium leading-relaxed italic bg-base-100 p-5 rounded-2xl border border-primary/5 text-neutral-content/90">
+          「載入講評中...」
+        </blockquote>
+        <span id="degraded-badge" class="badge badge-warning font-bold text-[10px] mt-2 self-start hidden">⚡ 偵測到 Gemini 連線異常：已啟用本地 AI 演算法完成容錯打分</span>
+      </div>
+
+      <!-- Next Actions -->
+      <div class="flex justify-center gap-x-4">
+        <button id="host-next-round-btn" class="btn btn-success btn-lg px-12 shadow-lg shadow-success/15 hidden">
+          <PlayIcon class="w-6 h-6 mr-1" />
+          <span>進入下一回合</span>
+        </button>
+        <div id="player-waiting-banner" class="alert alert-info font-bold max-w-md justify-center">
+          <HourglassIcon class="w-5 h-5 animate-spin" />
+          <span>等待主持人開啟下一回合...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PHASE 5: MATCH_OVER ================= -->
+    <div id="phase-matchover" class="hidden card bg-base-300 shadow-2xl border border-warning/30 p-10 text-center flex flex-col items-center gap-y-6">
+      <AwardIcon class="w-20 h-20 text-warning animate-pulse" />
+      <h2 class="text-5xl font-black text-warning tracking-widest drop-shadow-lg" id="matchover-winner-text">Team A 取得最終勝利！</h2>
+      <p class="text-neutral-content/70 text-lg">經過多回合的智慧謎語接龍激烈交鋒，恭喜獲勝組別！</p>
+      
+      <div class="divider max-w-sm my-0"></div>
+
+      <div class="flex gap-x-4">
+        <button id="back-to-lobby-btn" class="btn btn-primary btn-lg px-10">回到大廳</button>
+      </div>
+    </div>
+
+  </div>
 </Layout>
+
+<script>
+  import { getSocket, getSession, clearSession } from "@/utils/socket";
+
+  // Shared UI Element References
+  const roundNumBadge = document.getElementById("round-num-badge") as HTMLSpanElement;
+  const roomInfo = document.getElementById("room-info") as HTMLHeadingElement;
+  const matchScoreA = document.getElementById("match-score-a") as HTMLSpanElement;
+  const matchScoreB = document.getElementById("match-score-b") as HTMLSpanElement;
+  
+  // Host Actions Panel
+  const hostActionsPanel = document.getElementById("host-actions-panel") as HTMLDivElement;
+  const hostPauseBtn = document.getElementById("host-pause-btn") as HTMLButtonElement;
+  const hostResumeBtn = document.getElementById("host-resume-btn") as HTMLButtonElement;
+  const hostForceJudgeBtn = document.getElementById("host-force-judge-btn") as HTMLButtonElement;
+  
+  // Phase Blocks
+  const phaseIntro = document.getElementById("phase-intro") as HTMLDivElement;
+  const phaseChaining = document.getElementById("phase-chaining") as HTMLDivElement;
+  const phaseJudging = document.getElementById("phase-judging") as HTMLDivElement;
+  const phaseResult = document.getElementById("phase-result") as HTMLDivElement;
+  const phaseMatchover = document.getElementById("phase-matchover") as HTMLDivElement;
+
+  // Session
+  const session = getSession();
+  const role = sessionStorage.getItem("wc_role") || (session ? "player" : null);
+  const roomId = session?.roomId || sessionStorage.getItem("wc_room_id") || "sitcon-camp-2026";
+
+  if (!role) {
+    window.location.href = "/";
+  }
+
+  if (roomInfo) {
+    roomInfo.textContent = `SITCON 接龍戰局 | 房號: ${roomId} | 角色: ${role.toUpperCase()}`;
+  }
+
+  // Connect to socket
+  const socket = getSocket();
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  // Re-establish session or join
+  socket.on("connect", () => {
+    if (role === "player" && session) {
+      socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
+        if (!res.ok) {
+          clearSession();
+          window.location.href = "/";
+        }
+      });
+    } else {
+      socket.emit("room:join", { roomId, role }, (res: any) => {
+        if (!res.ok) {
+          window.location.href = "/";
+        }
+      });
+    }
+  });
+
+  // Host Action Panel Initialization
+  if (role === "host" && hostActionsPanel) {
+    hostActionsPanel.classList.remove("hidden");
+  }
+
+  // Active timers tracking to prevent overlapping
+  let countdownTimer: any = null;
+
+  function clearActiveTimer() {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  // Core Room State Listener
+  socket.on("room:state", (state: any) => {
+    console.log("Active Game Room State:", state);
+    clearActiveTimer();
+
+    // 1. Update Global Header Info
+    if (roundNumBadge) roundNumBadge.textContent = `Round ${state.round}`;
+    if (matchScoreA) matchScoreA.textContent = String(state.score.A);
+    if (matchScoreB) matchScoreB.textContent = String(state.score.B);
+
+    // Host Pause status sync
+    if (role === "host") {
+      if (state.paused) {
+        hostPauseBtn?.classList.add("hidden");
+        hostResumeBtn?.classList.remove("hidden");
+      } else {
+        hostPauseBtn?.classList.remove("hidden");
+        hostResumeBtn?.classList.add("hidden");
+      }
+    }
+
+    // Hide all phase containers, we'll reveal the active one
+    phaseIntro?.classList.add("hidden");
+    phaseChaining?.classList.add("hidden");
+    phaseJudging?.classList.add("hidden");
+    phaseResult?.classList.add("hidden");
+    phaseMatchover?.classList.add("hidden");
+
+    // 2. Render State Phase
+    switch (state.phase) {
+      case "LOBBY":
+        // If somehow in lobby, go to lobby page
+        window.location.href = "/room";
+        break;
+
+      case "ROUND_INTRO":
+        renderRoundIntro(state);
+        break;
+
+      case "CHAINING":
+        renderChaining(state);
+        break;
+
+      case "JUDGING":
+        phaseJudging?.classList.remove("hidden");
+        break;
+
+      case "ROUND_RESULT":
+        renderRoundResult(state);
+        break;
+
+      case "MATCH_OVER":
+        renderMatchOver(state);
+        break;
+    }
+  });
+
+  // ================= RENDER ROUND_INTRO =================
+  const introRoundNum = document.getElementById("intro-round-num") as HTMLSpanElement;
+  const introTopic = document.getElementById("intro-topic") as HTMLHeadingElement;
+  const introRadial = document.getElementById("intro-radial") as HTMLDivElement;
+
+  function renderRoundIntro(state: any) {
+    phaseIntro?.classList.remove("hidden");
+    if (introRoundNum) introRoundNum.textContent = state.round;
+    if (introTopic) introTopic.textContent = state.topic || "AI 命題官正在生成謎語主題...";
+
+    if (state.phaseEndsAt && introRadial) {
+      const endsAt = state.phaseEndsAt;
+      
+      const updateTimer = () => {
+        const remaining = Math.max(0, endsAt - Date.now());
+        const seconds = Math.ceil(remaining / 1000);
+        
+        introRadial.textContent = `${seconds}s`;
+        
+        // 30s is standard duration, map percentage
+        const pct = Math.min(100, Math.max(0, (remaining / 30000) * 100));
+        introRadial.style.setProperty("--value", String(pct));
+        
+        if (remaining <= 0) {
+          clearActiveTimer();
+        }
+      };
+      
+      updateTimer();
+      countdownTimer = setInterval(updateTimer, 200);
+    }
+  }
+
+  // ================= RENDER CHAINING =================
+  const chainingTopic = document.getElementById("chaining-topic") as HTMLHeadingElement;
+  const chainListA = document.getElementById("chain-list-a") as HTMLDivElement;
+  const chainListB = document.getElementById("chain-list-b") as HTMLDivElement;
+  const timerTeamA = document.getElementById("timer-team-a") as HTMLDivElement;
+  const timerTeamB = document.getElementById("timer-team-b") as HTMLDivElement;
+  const skipTeamABtn = document.getElementById("skip-team-a-btn") as HTMLButtonElement;
+  const skipTeamBBtn = document.getElementById("skip-team-b-btn") as HTMLButtonElement;
+  
+  // Submit block references
+  const submitPanel = document.getElementById("submit-panel") as HTMLDivElement;
+  const submitStatusBanner = document.getElementById("submit-status-banner") as HTMLDivElement;
+  const submitStatusText = document.getElementById("submit-status-text") as HTMLSpanElement;
+  const submitActionRow = document.getElementById("submit-action-row") as HTMLDivElement;
+  const answerInput = document.getElementById("answer-input") as HTMLInputElement;
+  const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement;
+  const submitError = document.getElementById("submit-error") as HTMLSpanElement;
+
+  function renderChaining(state: any) {
+    phaseChaining?.classList.remove("hidden");
+    if (chainingTopic) chainingTopic.textContent = state.topic;
+
+    // Show host skipping control
+    if (role === "host") {
+      skipTeamABtn?.classList.remove("hidden");
+      skipTeamBBtn?.classList.remove("hidden");
+    }
+
+    // Render team chain blocks
+    populateChainList("A", state.teams.A, chainListA, "info");
+    populateChainList("B", state.teams.B, chainListB, "secondary");
+
+    // Sync Turn timers (20s TurnMs is standard)
+    syncTurnTimer("A", state.teams.A, timerTeamA);
+    syncTurnTimer("B", state.teams.B, timerTeamB);
+
+    // Handle Submission panel activation (Only for active player)
+    if (role === "player" && session) {
+      const myTeam = session.team;
+      const mySeat = session.seat;
+      const currentTeamState = state.teams[myTeam];
+      
+      const isMyTurn = !currentTeamState.done && currentTeamState.currentSeat === mySeat;
+      
+      if (isMyTurn) {
+        // Activate Submission Row
+        submitStatusBanner?.classList.add("hidden");
+        submitActionRow?.classList.remove("hidden");
+        submitPanel?.classList.add("border-success/40", "bg-success/5");
+        submitPanel?.classList.remove("border-primary/20");
+        
+        if (answerInput) {
+          answerInput.disabled = false;
+          answerInput.focus();
+        }
+        if (submitBtn) submitBtn.disabled = false;
+      } else {
+        // Standby / Wait screen
+        submitStatusBanner?.classList.remove("hidden");
+        submitActionRow?.classList.add("hidden");
+        submitPanel?.classList.remove("border-success/40", "bg-success/5");
+        submitPanel?.classList.add("border-primary/20");
+        
+        if (currentTeamState.done) {
+          submitStatusText.textContent = "恭喜！您小隊的謎語接龍已全數完成！等待評審階段開始中 🏁";
+        } else {
+          const currentSeatPlayerNum = currentTeamState.currentSeat;
+          submitStatusText.textContent = `等待您隊伍的 第 ${currentSeatPlayerNum} 棒作答中... ⏳`;
+        }
+      }
+    } else {
+      // Host / Observer
+      submitStatusBanner?.classList.remove("hidden");
+      submitActionRow?.classList.add("hidden");
+      submitStatusText.textContent = "目前雙方正在進行緊張刺激的接龍比賽，可由右方控制鍵跳過棒次。";
+    }
+  }
+
+  function populateChainList(teamId: "A" | "B", teamState: any, container: HTMLDivElement, badgeColor: string) {
+    if (!container) return;
+    container.innerHTML = "";
+
+    // SEATS = 6
+    for (let i = 1; i <= 6; i++) {
+      const val = teamState.segments[i - 1]; // segment is index i-1
+      const isCurrentActive = !teamState.done && teamState.currentSeat === i;
+      
+      const card = document.createElement("div");
+      card.className = `flex justify-between items-center p-3 rounded-xl bg-base-200 border ${
+        isCurrentActive ? `border-${badgeColor} bg-${badgeColor}/10 animate-pulse` : "border-neutral/20"
+      }`;
+
+      const seatBadge = `<span class="badge badge-sm badge-${badgeColor} font-black">棒次 ${i}</span>`;
+      let textSpan = `<span class="text-neutral-content/30 italic text-sm">等待作答...</span>`;
+
+      if (val !== undefined) {
+        if (val === "") {
+          textSpan = `<span class="text-error font-extrabold tracking-widest text-base">［超時未答］</span>`;
+        } else {
+          // If opponent text is empty string (hidden by backend), show block placeholder
+          const letters = [...val];
+          if (letters.length === 0) {
+            textSpan = `<span class="text-neutral-content/40 tracking-[0.3em] font-mono text-base font-black">▇ ▇ ▇ ▇ ▇</span>`;
+          } else {
+            textSpan = `<span class="text-success tracking-[0.25em] text-lg font-black">${val}</span>`;
+          }
+        }
+      } else if (isCurrentActive) {
+        textSpan = `<span class="text-${badgeColor} font-extrabold animate-pulse text-sm">正在輸入中...</span>`;
+      }
+
+      card.innerHTML = `
+        <div class="flex items-center gap-x-4">
+          ${seatBadge}
+          ${textSpan}
+        </div>
+      `;
+
+      container.appendChild(card);
+    }
+  }
+
+  function syncTurnTimer(teamId: "A" | "B", teamState: any, timerBadge: HTMLDivElement) {
+    if (!timerBadge) return;
+    
+    if (teamState.done || !teamState.turnEndsAt) {
+      timerBadge.classList.add("hidden");
+      return;
+    }
+
+    timerBadge.classList.remove("hidden");
+    const endsAt = teamState.turnEndsAt;
+    
+    // Setup a mini animation frame/interval specifically for turn countdowns
+    const update = () => {
+      const rem = Math.max(0, endsAt - Date.now());
+      const sec = Math.ceil(rem / 1000);
+      timerBadge.textContent = `${sec}s 剩餘`;
+      
+      if (rem <= 5000) {
+        timerBadge.className = "badge badge-error py-2.5 text-xs font-mono font-bold animate-pulse";
+      } else {
+        timerBadge.className = `badge badge-${teamId === "A" ? "info" : "secondary"} py-2.5 text-xs font-mono font-bold animate-pulse`;
+      }
+    };
+    
+    update();
+    // We can run these concurrently in a local animation or let the parent update handling cover it
+    const localTimer = setInterval(update, 500);
+    // Bind to the countdownTimer clear sequence
+    const origClear = clearActiveTimer;
+    clearActiveTimer = () => {
+      clearInterval(localTimer);
+      origClear();
+    };
+  }
+
+  // Answer Submission Event
+  submitBtn?.addEventListener("click", performSubmit);
+  answerInput?.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      performSubmit();
+    }
+  });
+
+  function performSubmit() {
+    if (submitError) submitError.textContent = "";
+    const text = answerInput.value.trim();
+    
+    if ([...text].length !== 5) {
+      if (submitError) submitError.textContent = "答案必須剛好是 5 個字！";
+      return;
+    }
+
+    if (answerInput) answerInput.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
+
+    socket.emit("segment:submit", { text }, (res: any) => {
+      if (res.ok) {
+        answerInput.value = "";
+      } else {
+        if (submitError) submitError.textContent = `提交失敗：${res.error}`;
+        if (answerInput) answerInput.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  // ================= RENDER ROUND_RESULT =================
+  const resultWinnerLine = document.getElementById("result-winner-text") as HTMLHeadingElement;
+  const resultScoreA = document.getElementById("result-score-a") as HTMLSpanElement;
+  const resultScoreB = document.getElementById("result-score-b") as HTMLSpanElement;
+  const criteriaBreakdownA = document.getElementById("criteria-breakdown-a") as HTMLDivElement;
+  const criteriaBreakdownB = document.getElementById("criteria-breakdown-b") as HTMLDivElement;
+  const resultReason = document.getElementById("result-reason") as HTMLQuoteElement;
+  const hostNextRoundBtn = document.getElementById("host-next-round-btn") as HTMLButtonElement;
+  const playerWaitingBanner = document.getElementById("player-waiting-banner") as HTMLDivElement;
+  const degradedBadge = document.getElementById("degraded-badge") as HTMLSpanElement;
+
+  function renderRoundResult(state: any) {
+    phaseResult?.classList.remove("hidden");
+    
+    // Extract the last round result
+    const lastResult = state.rounds[state.rounds.length - 1];
+    if (!lastResult) return;
+
+    if (resultWinnerLine) {
+      if (lastResult.winner === "tie") {
+        resultWinnerLine.className = "text-4xl font-extrabold tracking-wide text-warning";
+        resultWinnerLine.textContent = "本局平手！";
+      } else {
+        const teamName = lastResult.winner === "A" ? "藍色小隊 (Team A)" : "橘色小隊 (Team B)";
+        resultWinnerLine.className = `text-4xl font-extrabold tracking-wide text-${lastResult.winner === "A" ? "info" : "secondary"}`;
+        resultWinnerLine.textContent = `🎉 恭喜 ${teamName} 拿下此局！`;
+      }
+    }
+
+    if (resultScoreA) resultScoreA.textContent = `${lastResult.scoreA} 分`;
+    if (resultScoreB) resultScoreB.textContent = `${lastResult.scoreB} 分`;
+
+    // Populate Sliders criteria A & B
+    populateCriteria(lastResult.breakdown.A, criteriaBreakdownA, "info");
+    populateCriteria(lastResult.breakdown.B, criteriaBreakdownB, "secondary");
+
+    // Populate speech reason
+    if (resultReason) resultReason.textContent = lastResult.reason || "評審未留下任何評語。";
+
+    // Degradation Mode badge show
+    if (lastResult.degraded && degradedBadge) {
+      degradedBadge.classList.remove("hidden");
+    } else if (degradedBadge) {
+      degradedBadge.classList.add("hidden");
+    }
+
+    // Role actions
+    if (role === "host") {
+      hostNextRoundBtn?.classList.remove("hidden");
+      playerWaitingBanner?.classList.add("hidden");
+    } else {
+      hostNextRoundBtn?.classList.add("hidden");
+      playerWaitingBanner?.classList.remove("hidden");
+    }
+  }
+
+  function populateCriteria(breakdown: any, container: HTMLDivElement, colorClass: string) {
+    if (!container) return;
+    container.innerHTML = "";
+
+    const items = [
+      { key: "邏輯性 (25%)", val: breakdown.logic },
+      { key: "符合度 (30%)", val: breakdown.relevance },
+      { key: "完整性 (25%)", val: breakdown.completeness },
+      { key: "創意性 (20%)", val: breakdown.creativity }
+    ];
+
+    for (const item of items) {
+      const row = document.createElement("div");
+      row.className = "space-y-1";
+      
+      row.innerHTML = `
+        <div class="flex justify-between items-center text-xs font-bold">
+          <span class="text-neutral-content/70">${item.key}</span>
+          <span class="text-${colorClass}">${item.val} / 100</span>
+        </div>
+        <progress class="progress progress-${colorClass} w-full h-2" value="${item.val}" max="100"></progress>
+      `;
+
+      container.appendChild(row);
+    }
+  }
+
+  // Next round click trigger
+  hostNextRoundBtn?.addEventListener("click", () => {
+    socket.emit("match:start", {}, (res: any) => {
+      if (!res.ok) {
+        alert(`無法開啟新一回合：${res.error}`);
+      }
+    });
+  });
+
+  // ================= RENDER MATCH_OVER =================
+  const matchoverWinnerText = document.getElementById("matchover-winner-text") as HTMLHeadingElement;
+  const backToLobbyBtn = document.getElementById("back-to-lobby-btn") as HTMLButtonElement;
+
+  function renderMatchOver(state: any) {
+    phaseMatchover?.classList.remove("hidden");
+    
+    // Determine winner based on score
+    const winner = state.score.A > state.score.B ? "藍色小隊 (Team A)" : "橘色小隊 (Team B)";
+    if (matchoverWinnerText) {
+      matchoverWinnerText.textContent = `🏆 恭喜 ${winner} 榮登最終霸主！`;
+    }
+  }
+
+  backToLobbyBtn?.addEventListener("click", () => {
+    // Clear session and return
+    clearSession();
+    sessionStorage.clear();
+    window.location.href = "/";
+  });
+
+  // ================= HOST CONTROL ACTIONS EVENT LISTENERS =================
+  hostPauseBtn?.addEventListener("click", () => {
+    socket.emit("host:pause", {}, (res: any) => {
+      if (!res.ok) alert(`暫停失敗：${res.error}`);
+    });
+  });
+
+  hostResumeBtn?.addEventListener("click", () => {
+    socket.emit("host:resume", {}, (res: any) => {
+      if (!res.ok) alert(`恢復失敗：${res.error}`);
+    });
+  });
+
+  hostForceJudgeBtn?.addEventListener("click", () => {
+    if (confirm("確認強制提早結束本回合，直接進入 AI 評審打分階段嗎？")) {
+      socket.emit("host:force_judge", {}, (res: any) => {
+        if (!res.ok) alert(`操作失敗：${res.error}`);
+      });
+    }
+  });
+
+  skipTeamABtn?.addEventListener("click", () => {
+    if (confirm("確認強制超時並跳過 A 小隊當前棒次嗎？")) {
+      socket.emit("host:skip_turn", { team: "A" }, (res: any) => {
+        if (!res.ok) alert(`操作失敗：${res.error}`);
+      });
+    }
+  });
+
+  skipTeamBBtn?.addEventListener("click", () => {
+    if (confirm("確認強制超時並跳過 B 小隊當前棒次嗎？")) {
+      socket.emit("host:skip_turn", { team: "B" }, (res: any) => {
+        if (!res.ok) alert(`操作失敗：${res.error}`);
+      });
+    }
+  });
+</script>

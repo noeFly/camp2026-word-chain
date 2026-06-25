@@ -1,21 +1,212 @@
 ---
 import Layout from "@/layouts/Layout.astro"
-
-const ready: boolean = true
+import PlayIcon from "~icons/lucide/play"
+import LogOutIcon from "~icons/lucide/log-out"
 ---
 
 <Layout>
-  {
-    ready ? (
-      <>
-        <h2 class="text-primary text-4xl font-bold">準備開始</h2>
-        <p class="text-lg">遊戲準備開始，請做好準備！</p>
-      </>
-    ) : (
-      <>
-        <h2 class="text-4xl font-bold">等待中...</h2>
-        <p class="text-lg">正在等待另一個組別加入遊戲</p>
-      </>
-    )
-  }
+  <div class="w-full max-w-5xl flex flex-col gap-y-6">
+    <!-- Header -->
+    <div class="navbar bg-base-300 rounded-2xl shadow-xl border border-primary/10 px-6 justify-between">
+      <div class="flex flex-col items-start">
+        <h1 class="text-2xl font-black text-primary tracking-wide">AI 謎題接龍 — 遊戲大廳</h1>
+        <p id="room-id-display" class="text-xs text-neutral-content/60 font-mono">載入中...</p>
+      </div>
+      
+      <div class="flex items-center gap-x-3">
+        <!-- Host Controls -->
+        <button id="start-game-btn" class="btn btn-success btn-md hidden shadow-lg shadow-success/20">
+          <PlayIcon class="w-5 h-5 mr-1" />
+          <span>開始比賽</span>
+        </button>
+
+        <button id="exit-btn" class="btn btn-ghost btn-circle btn-md text-error hover:bg-error/10">
+          <LogOutIcon class="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- Team A Panel -->
+      <div class="card bg-base-300 shadow-xl border border-info/10">
+        <div class="card-body p-6">
+          <div class="flex justify-between items-center mb-4 border-b border-neutral-content/10 pb-2">
+            <h2 class="card-title text-info font-black text-xl">藍色小隊 — Team A</h2>
+            <span id="score-a" class="badge badge-info font-bold p-3">大分: 0</span>
+          </div>
+          <div class="space-y-2" id="team-a-players">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Team B Panel -->
+      <div class="card bg-base-300 shadow-xl border border-secondary/10">
+        <div class="card-body p-6">
+          <div class="flex justify-between items-center mb-4 border-b border-neutral-content/10 pb-2">
+            <h2 class="card-title text-secondary font-black text-xl">橘色小隊 — Team B</h2>
+            <span id="score-b" class="badge badge-secondary font-bold p-3">大分: 0</span>
+          </div>
+          <div class="space-y-2" id="team-b-players">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Information Status -->
+    <div class="card bg-base-200 p-4 border border-primary/5 text-center text-sm font-medium">
+      <p id="lobby-status-text" class="text-neutral-content/70">正在與伺服器建立同步連線...</p>
+    </div>
+  </div>
 </Layout>
+
+<script>
+  import { getSocket, getSession, clearSession } from "@/utils/socket";
+
+  const roomIdDisplay = document.getElementById("room-id-display") as HTMLParagraphElement;
+  const lobbyStatusText = document.getElementById("lobby-status-text") as HTMLParagraphElement;
+  const startGameBtn = document.getElementById("start-game-btn") as HTMLButtonElement;
+  const exitBtn = document.getElementById("exit-btn") as HTMLButtonElement;
+  const scoreA = document.getElementById("score-a") as HTMLSpanElement;
+  const scoreB = document.getElementById("score-b") as HTMLSpanElement;
+  const teamAPlayers = document.getElementById("team-a-players") as HTMLDivElement;
+  const teamBPlayers = document.getElementById("team-b-players") as HTMLDivElement;
+
+  const session = getSession();
+  const role = sessionStorage.getItem("wc_role") || (session ? "player" : null);
+  const roomId = session?.roomId || sessionStorage.getItem("wc_room_id") || "sitcon-camp-2026";
+
+  if (!role) {
+    // 沒登入導回首頁
+    window.location.href = "/";
+  }
+
+  if (roomIdDisplay) {
+    roomIdDisplay.textContent = `ROOM: ${roomId} | Role: ${role ? role.toUpperCase() : ""}`;
+  }
+
+  const socket = getSocket();
+  
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  // 1. 連線 & 角色加入
+  socket.on("connect", () => {
+    if (role === "player" && session) {
+      socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
+        if (!res.ok) {
+          console.error("重連失敗：", res.error);
+          clearSession();
+          window.location.href = "/";
+        } else {
+          console.log("重連成功", res);
+          lobbyStatusText.textContent = "已成功同步房間狀態，等待主持人開始比賽...";
+        }
+      });
+    } else {
+      // Host 或 Observer 模式
+      socket.emit("room:join", { roomId, role }, (res: any) => {
+        if (!res.ok) {
+          console.error("加入失敗：", res.error);
+          window.location.href = "/";
+        } else {
+          console.log("加入成功", res);
+          if (role === "host") {
+            startGameBtn?.classList.remove("hidden");
+            lobbyStatusText.textContent = "您是主持人，請等待各組登入後，點擊「開始比賽」";
+          } else {
+            lobbyStatusText.textContent = "觀戰大螢幕模式中，等待主持人開始比賽...";
+          }
+        }
+      });
+    }
+  });
+
+  // 2. 監聽房間狀態變更
+  socket.on("room:state", (state: any) => {
+    console.log("Room State:", state);
+    
+    // 大分更新
+    if (scoreA) scoreA.textContent = `大分: ${state.score.A}`;
+    if (scoreB) scoreB.textContent = `大分: ${state.score.B}`;
+
+    // 如果階段已經進入 ROUND_INTRO 或是 CHAINING，自動導向遊玩頁面
+    if (state.phase !== "LOBBY") {
+      window.location.href = "/ingame";
+    }
+  });
+
+  // 3. 監聽在線名單變更，渲染在線表格
+  socket.on("presence:update", ({ players }: { players: any[] }) => {
+    console.log("Presence Update:", players);
+    
+    // 渲染 Team A (座號 1-6)
+    renderTeamList("A", players, teamAPlayers, "info");
+    // 渲染 Team B (座號 1-6)
+    renderTeamList("B", players, teamBPlayers, "secondary");
+  });
+
+  function renderTeamList(teamId: "A" | "B", players: any[], container: HTMLDivElement, badgeColor: string) {
+    if (!container) return;
+    container.innerHTML = "";
+
+    // 建立 1..6 棒的空欄
+    for (let i = 1; i <= 6; i++) {
+      const player = players.find(p => p.team === teamId && p.seat === i);
+      const isCurrentPlayer = session && session.team === teamId && session.seat === i;
+      
+      const div = document.createElement("div");
+      div.className = `flex justify-between items-center p-3 rounded-xl bg-base-200 border ${
+        isCurrentPlayer ? `border-${badgeColor}/60 bg-${badgeColor}/5 shadow-inner` : "border-neutral/20"
+      }`;
+
+      const seatBadge = `<span class="badge badge-${badgeColor} font-black min-w-[2.2rem]">第 ${i} 棒</span>`;
+      let nameText = `<span class="text-neutral-content/40 font-medium">座位待加入...</span>`;
+      let statusIcon = "";
+
+      if (player) {
+        const connBadge = player.connected
+          ? `<span class="badge badge-success badge-xs py-1 px-1.5 font-bold text-[9px]">ON</span>`
+          : `<span class="badge badge-error badge-xs py-1 px-1.5 font-bold text-[9px] text-error-content animate-pulse">OFF</span>`;
+        
+        nameText = `<span class="font-extrabold text-base ${isCurrentPlayer ? `text-${badgeColor}` : "text-neutral-content"}">${player.name} ${isCurrentPlayer ? " (你)" : ""}</span>`;
+        statusIcon = connBadge;
+      }
+
+      div.innerHTML = `
+        <div class="flex items-center gap-x-3">
+          ${seatBadge}
+          ${nameText}
+        </div>
+        <div>
+          ${statusIcon}
+        </div>
+      `;
+
+      container.appendChild(div);
+    }
+  }
+
+  // 4. 開始遊戲按鈕
+  startGameBtn?.addEventListener("click", () => {
+    socket.emit("match:start", {}, (res: any) => {
+      if (!res.ok) {
+        alert(`開始失敗：${res.error}`);
+      }
+    });
+  });
+
+  // 5. 退出大廳按鈕
+  exitBtn?.addEventListener("click", () => {
+    if (confirm("確認離開房間嗎？")) {
+      clearSession();
+      sessionStorage.clear();
+      window.location.href = "/";
+    }
+  });
+</script>
