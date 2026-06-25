@@ -4,16 +4,21 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
 ---
 
 <Layout>
-  <div class="card bg-base-300 w-full max-w-md p-6 shadow-2xl border border-primary/20 flex flex-col items-center gap-y-6">
-    <h1 class="text-4xl font-extrabold text-primary tracking-wider drop-shadow-sm text-center">AI 謎題接龍</h1>
-    <p class="text-sm text-neutral-content/80 text-center">SITCON Camp 2026 智慧出題與公正 AI 評審</p>
-    
-    <div class="w-full flex flex-col items-center gap-y-4">
+  <div
+    class="card bg-base-300 border-primary/20 flex w-full max-w-md flex-col items-center gap-y-6 border p-6 shadow-2xl">
+    <h1 class="text-primary text-center text-4xl font-extrabold tracking-wider drop-shadow-sm"
+      >AI 謎題接龍</h1
+    >
+    <p class="text-neutral-content/80 text-center text-sm"
+      >SITCON Camp 2026 智慧出題與公正 AI 評審</p
+    >
+
+    <div class="flex w-full flex-col items-center gap-y-4">
       <div class="form-control w-full max-w-xs">
         <label class="label justify-center">
-          <span class="label-text font-semibold text-base">請輸入你的組別編號登入</span>
+          <span class="label-text text-base font-semibold">請輸入你的組別編號登入</span>
         </label>
-        
+
         <div class="join w-full justify-center">
           <input
             id="group-input"
@@ -23,15 +28,17 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
             max="10"
             placeholder="1"
             title="請輸入組別編號 (1-10)"
-            class="input input-primary join-item input-lg w-24 text-center font-bold text-2xl"
+            class="input input-primary join-item input-lg w-24 text-center text-2xl font-bold"
           />
           <button id="login-btn" class="btn join-item btn-primary btn-lg w-16">
-            <ChevronRightIcon class="w-6 h-6" />
+            <ChevronRightIcon class="h-6 w-6" />
           </button>
         </div>
-        
+
         <label class="label justify-center">
-          <span id="error-msg" class="label-text-alt text-error font-medium min-h-[1.5rem] mt-1 text-center"></span>
+          <span
+            id="error-msg"
+            class="label-text-alt text-error mt-1 min-h-[1.5rem] text-center font-medium"></span>
         </label>
       </div>
     </div>
@@ -39,125 +46,133 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
     <div class="divider my-0"></div>
 
     <div class="flex gap-x-4 text-xs">
-      <a id="host-login" href="#" class="link link-hover text-primary/75 hover:text-primary font-medium">主辦方主控面板 (Host)</a>
+      <a
+        id="host-login"
+        href="#"
+        class="link link-hover text-primary/75 hover:text-primary font-medium"
+        >主辦方主控面板 (Host)</a
+      >
       <span class="text-neutral-content/30">|</span>
-      <a id="obs-login" href="#" class="link link-hover text-secondary/75 hover:text-secondary font-medium">觀戰大螢幕 (Observer)</a>
+      <a
+        id="obs-login"
+        href="#"
+        class="link link-hover text-secondary/75 hover:text-secondary font-medium"
+        >觀戰大螢幕 (Observer)</a
+      >
     </div>
   </div>
 </Layout>
 
 <script>
-  import { getSocket, saveSession, clearSession } from "@/utils/socket";
+  import { clearSession, getSocket, saveSession } from "@/utils/socket"
 
-  const groupInput = document.getElementById("group-input") as HTMLInputElement;
-  const loginBtn = document.getElementById("login-btn") as HTMLButtonElement;
-  const errorMsg = document.getElementById("error-msg") as HTMLSpanElement;
-  const hostLogin = document.getElementById("host-login") as HTMLAnchorElement;
-  const obsLogin = document.getElementById("obs-login") as HTMLAnchorElement;
+  const groupInput = document.getElementById("group-input") as HTMLInputElement
+  const loginBtn = document.getElementById("login-btn") as HTMLButtonElement
+  const errorMsg = document.getElementById("error-msg") as HTMLSpanElement
+  const hostLogin = document.getElementById("host-login") as HTMLAnchorElement
+  const obsLogin = document.getElementById("obs-login") as HTMLAnchorElement
 
   function showError(msg: string) {
     if (errorMsg) {
-      errorMsg.textContent = msg;
+      errorMsg.textContent = msg
     }
   }
 
   function clearError() {
     if (errorMsg) {
-      errorMsg.textContent = "";
+      errorMsg.textContent = ""
     }
   }
 
   async function handleJoin(role: "player" | "host" | "observer", groupNum?: number) {
-    clearError();
-    
-    if (loginBtn) loginBtn.disabled = true;
-    
-    const socket = getSocket();
-    
+    clearError()
+
+    if (loginBtn) loginBtn.disabled = true
+
+    const socket = getSocket()
+
     if (!socket.connected) {
-      socket.connect();
+      socket.connect()
     }
 
-    const roomId = "sitcon-camp-2026"; // 預設房間 ID
-    let payload: any = { roomId, role };
+    const roomId = "sitcon-camp-2026" // 預設房間 ID
+    let payload: any = { roomId, role }
 
     if (role === "player") {
       if (!groupNum || groupNum < 1 || groupNum > 10) {
-        showError("組別編號必須在 1 到 10 之間");
-        if (loginBtn) loginBtn.disabled = false;
-        return;
+        showError("組別編號必須在 1 到 10 之間")
+        if (loginBtn) loginBtn.disabled = false
+        return
       }
 
-      // 1-5 組是 Team A，座號 1-5
-      // 6-10 組是 Team B，座號 1-5
-      const team = groupNum <= 5 ? "A" : "B";
-      const seat = groupNum <= 5 ? groupNum : groupNum - 5;
-      
+      // 後端目前只接受 team，不接受 seat；一隊一台裝置輪流完成所有棒次。
+      const team = groupNum <= 5 ? "A" : "B"
+
       payload = {
         ...payload,
         name: `組別 ${groupNum}`,
         team,
-        seat
-      };
+      }
     }
 
     // 發送加入房間事件
     socket.emit("room:join", payload, (res: any) => {
       if (res.ok) {
         if (role === "player") {
+          const assignedTeam = res.team === "A" || res.team === "B" ? res.team : null
           saveSession({
             roomId,
             playerId: res.playerId,
-            team: res.team,
-            seat: res.seat,
-            groupNumber: groupNum!
-          });
+            team: assignedTeam,
+            seat: null,
+            groupNumber: groupNum!,
+          })
           // 跳轉至等待大廳
-          window.location.href = "/room";
+          window.location.href = "/room"
         } else if (role === "host") {
-          sessionStorage.setItem("wc_role", "host");
-          sessionStorage.setItem("wc_room_id", roomId);
-          window.location.href = "/room";
+          sessionStorage.setItem("wc_role", "host")
+          sessionStorage.setItem("wc_room_id", roomId)
+          window.location.href = "/room"
         } else if (role === "observer") {
-          sessionStorage.setItem("wc_role", "observer");
-          sessionStorage.setItem("wc_room_id", roomId);
-          window.location.href = "/room";
+          sessionStorage.setItem("wc_role", "observer")
+          sessionStorage.setItem("wc_room_id", roomId)
+          window.location.href = "/room"
         }
       } else {
-        showError(`加入失敗: ${res.error}`);
-        if (loginBtn) loginBtn.disabled = false;
+        showError(`加入失敗: ${res.error}`)
+        if (loginBtn) loginBtn.disabled = false
       }
-    });
+    })
   }
 
   // 綁定點擊事件
   loginBtn?.addEventListener("click", () => {
-    const groupNum = parseInt(groupInput.value);
-    handleJoin("player", groupNum);
-  });
+    const groupNum = parseInt(groupInput.value)
+    handleJoin("player", groupNum)
+  })
 
   // 綁定 Enter 鍵
   groupInput?.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
-      const groupNum = parseInt(groupInput.value);
-      handleJoin("player", groupNum);
+      const groupNum = parseInt(groupInput.value)
+      handleJoin("player", groupNum)
     }
-  });
+  })
 
   // 主辦方登入
   hostLogin?.addEventListener("click", (e) => {
-    e.preventDefault();
-    handleJoin("host");
-  });
+    e.preventDefault()
+    handleJoin("host")
+  })
 
   // 觀戰者登入
   obsLogin?.addEventListener("click", (e) => {
-    e.preventDefault();
-    handleJoin("observer");
-  });
+    e.preventDefault()
+    handleJoin("observer")
+  })
 
   // 清除舊連線與 Session
-  clearSession();
-  sessionStorage.removeItem("wc_role");
-  sessionStorage.removeItem("wc_room_id");
+  clearSession()
+  sessionStorage.removeItem("wc_role")
+  sessionStorage.removeItem("wc_room_id")
 </script>
