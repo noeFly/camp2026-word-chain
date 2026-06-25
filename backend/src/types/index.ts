@@ -126,6 +126,7 @@ export const setQuestionsSchema = z.object({
 export const rejoinSchema = z.object({
   roomId: z.string().min(1).max(64),
   playerId: z.string().min(1).max(64),
+  team: z.enum(['A', 'B']).optional(),
 });
 
 export const submitSchema = z.object({ text: z.string() });

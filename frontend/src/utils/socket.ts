@@ -48,9 +48,10 @@ export function getSession(): GameSession | null {
   const rawTeam = localStorage.getItem("wc_team")
   const rawSeat = localStorage.getItem("wc_seat")
   const rawGroupNumber = localStorage.getItem("wc_group_number")
-  const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : null
-  const seat = rawSeat ? Number(rawSeat) : null
   const groupNumber = rawGroupNumber ? Number(rawGroupNumber) : NaN
+  const inferredTeam = !isNaN(groupNumber) ? (groupNumber <= 5 ? "A" : "B") : null
+  const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : inferredTeam
+  const seat = rawSeat ? Number(rawSeat) : null
 
   if (roomId && playerId && (seat === null || !isNaN(seat)) && !isNaN(groupNumber)) {
     return { roomId, playerId, team, seat, groupNumber }

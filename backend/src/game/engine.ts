@@ -75,26 +75,10 @@ export class GameEngine {
     this.broadcastPresence();
   }
 
-  /** True if a team already has an assigned device (one device per team). */
-  teamTaken(team: TeamId): boolean {
-    return [...this.players.values()].some((p) => p.team === team);
-  }
-
   /** Host assigns / switches a waiting device to a team (or null to release it). */
   async assignTeam(playerId: string, team: TeamId | null): Promise<boolean> {
     const p = this.players.get(playerId);
     if (!p) return false;
-
-    // One device per team: bump any current holder back to the waiting area.
-    if (team) {
-      for (const other of this.players.values()) {
-        if (other !== p && other.team === team) {
-          other.team = null;
-          this.moveSocketToTeam(other.socketId, null);
-          await repo.savePlayer(this.state.roomId, other);
-        }
-      }
-    }
 
     p.team = team;
     await repo.savePlayer(this.state.roomId, p);

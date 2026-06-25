@@ -101,16 +101,20 @@ import PlayIcon from "~icons/lucide/play"
   // 1. 連線 & 角色加入
   socket.on("connect", () => {
     if (role === "player" && session) {
-      socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
-        if (!res.ok) {
-          console.error("重連失敗：", res.error)
-          clearSession()
-          window.location.href = "/"
-        } else {
-          console.log("重連成功", res)
-          lobbyStatusText.textContent = "已成功同步房間狀態，等待主持人開始比賽..."
+      socket.emit(
+        "room:rejoin",
+        { roomId, playerId: session.playerId, team: session.team ?? undefined },
+        (res: any) => {
+          if (!res.ok) {
+            console.error("重連失敗：", res.error)
+            clearSession()
+            window.location.href = "/"
+          } else {
+            console.log("重連成功", res)
+            lobbyStatusText.textContent = "已成功同步房間狀態，等待主持人開始比賽..."
+          }
         }
-      })
+      )
     } else {
       // Host 或 Observer 模式
       socket.emit("room:join", { roomId, role }, (res: any) => {

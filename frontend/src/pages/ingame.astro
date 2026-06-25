@@ -330,12 +330,16 @@ import ZapIcon from "~icons/lucide/zap"
   // Re-establish session or join
   socket.on("connect", () => {
     if (role === "player" && session) {
-      socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
-        if (!res.ok) {
-          clearSession()
-          window.location.href = "/"
+      socket.emit(
+        "room:rejoin",
+        { roomId, playerId: session.playerId, team: session.team ?? undefined },
+        (res: any) => {
+          if (!res.ok) {
+            clearSession()
+            window.location.href = "/"
+          }
         }
-      })
+      )
     } else {
       socket.emit("room:join", { roomId, role }, (res: any) => {
         if (!res.ok) {

@@ -45,8 +45,7 @@ export function registerGateway(io: Server): RoomManager {
       socket.join(roomId);
 
       if (role === 'player') {
-        // Devices join unassigned and wait; the host switches them onto a team.
-        const assigned = team && !eng.teamTaken(team) ? team : null;
+        const assigned = team ?? null;
         const player: Player = {
           playerId: randomUUID(),
           team: assigned,
@@ -82,6 +81,9 @@ export function registerGateway(io: Server): RoomManager {
       if (!eng) return fail(ack, 'ROOM_NOT_FOUND');
       const player = eng.players.get(parsed.data.playerId);
       if (!player) return fail(ack, 'FORBIDDEN');
+      if (!player.team && parsed.data.team) {
+        await eng.assignTeam(player.playerId, parsed.data.team);
+      }
 
       data.roomId = parsed.data.roomId;
       data.role = 'player';
