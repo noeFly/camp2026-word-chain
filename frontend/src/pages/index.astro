@@ -8,20 +8,15 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
     <div class="card-body">
       <h1 class="text-primary text-center text-4xl font-bold tracking-widest">AI 謎題接龍</h1>
       <div class="flex w-full flex-col items-center gap-y-4">
-        <span>請輸入組別編號登入</span>
+        <span>請選擇隊伍登入</span>
 
-        <div class="join w-full justify-center">
-          <input
-            id="group-input"
-            type="number"
-            required
-            min="1"
-            max="10"
-            placeholder="1"
-            title="請輸入組別編號 (1～10)"
-            class="input input-primary join-item input-lg w-24 text-center text-2xl font-bold"
-          />
-          <button id="login-btn" class="btn join-item btn-primary btn-lg w-10 p-0">
+        <div class="grid w-full grid-cols-2 gap-3">
+          <button id="blue-login-btn" class="btn btn-info btn-lg justify-between px-5">
+            <span>藍隊</span>
+            <ChevronRightIcon class="size-6" />
+          </button>
+          <button id="red-login-btn" class="btn btn-secondary btn-lg justify-between px-5">
+            <span>紅隊</span>
             <ChevronRightIcon class="size-6" />
           </button>
         </div>
@@ -42,8 +37,8 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
 <script>
   import { clearSession, getSocket, saveSession } from "@/utils/socket"
 
-  const groupInput = document.getElementById("group-input") as HTMLInputElement
-  const loginBtn = document.getElementById("login-btn") as HTMLButtonElement
+  const blueLoginBtn = document.getElementById("blue-login-btn") as HTMLButtonElement
+  const redLoginBtn = document.getElementById("red-login-btn") as HTMLButtonElement
   const errorMsg = document.getElementById("error-msg") as HTMLSpanElement
   const hostLogin = document.getElementById("host-login") as HTMLAnchorElement
   const obsLogin = document.getElementById("obs-login") as HTMLAnchorElement
@@ -60,10 +55,15 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
     }
   }
 
-  async function handleJoin(role: "player" | "host" | "observer", groupNum?: number) {
+  function setPlayerButtonsDisabled(disabled: boolean) {
+    if (blueLoginBtn) blueLoginBtn.disabled = disabled
+    if (redLoginBtn) redLoginBtn.disabled = disabled
+  }
+
+  async function handleJoin(role: "player" | "host" | "observer", team?: "A" | "B") {
     clearError()
 
-    if (loginBtn) loginBtn.disabled = true
+    setPlayerButtonsDisabled(true)
 
     const socket = getSocket()
 
@@ -75,15 +75,16 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
     let payload: any = { roomId, role }
 
     if (role === "player") {
-      if (!groupNum || groupNum < 1 || groupNum > 10) {
-        showError("組別編號必須在 1 到 10 之間")
-        if (loginBtn) loginBtn.disabled = false
+      if (!team) {
+        showError("請選擇紅隊或藍隊")
+        setPlayerButtonsDisabled(false)
         return
       }
 
       payload = {
         ...payload,
-        name: `組別 ${groupNum}`,
+        team,
+        name: team === "A" ? "藍隊" : "紅隊",
       }
     }
 
@@ -97,7 +98,6 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
             playerId: res.playerId,
             team: assignedTeam,
             seat: null,
-            groupNumber: groupNum!,
           })
           // 跳轉至等待大廳
           window.location.href = "/room"
@@ -112,24 +112,14 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
         }
       } else {
         showError(`加入失敗: ${res.error}`)
-        if (loginBtn) loginBtn.disabled = false
+        setPlayerButtonsDisabled(false)
       }
     })
   }
 
   // 綁定點擊事件
-  loginBtn?.addEventListener("click", () => {
-    const groupNum = parseInt(groupInput.value)
-    handleJoin("player", groupNum)
-  })
-
-  // 綁定 Enter 鍵
-  groupInput?.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      const groupNum = parseInt(groupInput.value)
-      handleJoin("player", groupNum)
-    }
-  })
+  blueLoginBtn?.addEventListener("click", () => handleJoin("player", "A"))
+  redLoginBtn?.addEventListener("click", () => handleJoin("player", "B"))
 
   // 主辦方登入
   hostLogin?.addEventListener("click", (e) => {

@@ -585,7 +585,7 @@ import ZapIcon from "~icons/lucide/zap"
     syncTurnTimer("A", state.teams.A, timerTeamA, state.paused)
     syncTurnTimer("B", state.teams.B, timerTeamB, state.paused)
 
-    // Handle submission panel activation. Players may still be waiting for host assignment.
+    // Handle submission panel activation. Players should normally have chosen a team at login.
     const liveSession = getSession()
     if (role === "player" && liveSession) {
       const myTeam = liveSession.team
@@ -595,7 +595,7 @@ import ZapIcon from "~icons/lucide/zap"
         submitActionRow?.classList.add("hidden")
         submitPanel?.classList.remove("border-success/40", "bg-success/5")
         submitPanel?.classList.add("border-primary/20")
-        submitStatusText.textContent = "已登入，等待主持人分配隊伍..."
+        submitStatusText.textContent = "尚未選擇隊伍，請回首頁重新登入。"
         return
       }
 

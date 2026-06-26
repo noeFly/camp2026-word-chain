@@ -7,7 +7,7 @@ export interface GameSession {
   playerId: string
   team: "A" | "B" | null
   seat: number | null
-  groupNumber: number
+  groupNumber?: number
 }
 
 let socketInstance: Socket | null = null
@@ -27,7 +27,11 @@ export function getSocket(): Socket {
 export function saveSession(session: GameSession): void {
   localStorage.setItem("wc_room_id", session.roomId)
   localStorage.setItem("wc_player_id", session.playerId)
-  localStorage.setItem("wc_group_number", String(session.groupNumber))
+  if (session.groupNumber !== undefined) {
+    localStorage.setItem("wc_group_number", String(session.groupNumber))
+  } else {
+    localStorage.removeItem("wc_group_number")
+  }
 
   if (session.team) {
     localStorage.setItem("wc_team", session.team)
@@ -56,11 +60,16 @@ export function getSession(): GameSession | null {
   const rawTeam = localStorage.getItem("wc_team")
   const rawSeat = localStorage.getItem("wc_seat")
   const rawGroupNumber = localStorage.getItem("wc_group_number")
-  const groupNumber = rawGroupNumber ? Number(rawGroupNumber) : NaN
+  const groupNumber = rawGroupNumber ? Number(rawGroupNumber) : undefined
   const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : null
   const seat = rawSeat ? Number(rawSeat) : null
 
-  if (roomId && playerId && (seat === null || !isNaN(seat)) && !isNaN(groupNumber)) {
+  if (
+    roomId &&
+    playerId &&
+    (seat === null || !isNaN(seat)) &&
+    (groupNumber === undefined || !isNaN(groupNumber))
+  ) {
     return { roomId, playerId, team, seat, groupNumber }
   }
   return null

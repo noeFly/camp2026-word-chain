@@ -38,7 +38,7 @@ import PlayIcon from "~icons/lucide/play"
   <div class="card bg-base-300 w-full">
     <div class="card-body">
       <div class="flex items-center justify-between">
-        <h2 class="text-warning text-lg font-bold">等待主持人分隊</h2>
+        <h2 class="text-warning text-lg font-bold">未選隊伍</h2>
         <span id="waiting-count" class="badge badge-warning font-bold">0</span>
       </div>
       <div id="waiting-players" class="grid grid-cols-2 gap-2"></div>
@@ -192,8 +192,8 @@ import PlayIcon from "~icons/lucide/play"
         }
         updateSessionTeam(res.team ?? null)
         lobbyStatusText.textContent = res.team
-          ? `已分配至 Team ${res.team}，等待主持人開始比賽...`
-          : "已進入等待區，等待主持人分配隊伍..."
+          ? `已加入${res.team === "A" ? "藍隊" : "紅隊"}，等待主持人開始比賽...`
+          : "尚未選擇隊伍，請回首頁重新登入。"
       })
     } else {
       socket.emit("room:join", { roomId, role }, (res: any) => {
@@ -203,7 +203,9 @@ import PlayIcon from "~icons/lucide/play"
         }
         if (role === "observer") socket.emit("observer:subscribe", {}, () => {})
         lobbyStatusText.textContent =
-          role === "host" ? "您是主持人，請完成分隊與題目設定。" : "觀戰中，等待主持人開始比賽..."
+          role === "host"
+            ? "您是主持人，請完成題目設定並開始比賽。"
+            : "觀戰中，等待主持人開始比賽..."
       })
     }
   })
@@ -239,7 +241,7 @@ import PlayIcon from "~icons/lucide/play"
         ? { border: "border-info/20", text: "text-info" }
         : { border: "border-secondary/20", text: "text-secondary" }
     row.className = `flex items-center justify-between rounded-xl border ${colorClasses.border} bg-base-200 p-3`
-    const name = player ? `${player.name}${isMine ? "（你）" : ""}` : "尚未指派裝置"
+    const name = player ? `${player.name}${isMine ? "（你）" : ""}` : "尚未有玩家加入"
     const status = player
       ? player.connected
         ? '<span class="badge badge-success badge-xs font-bold">ON</span>'
@@ -266,7 +268,7 @@ import PlayIcon from "~icons/lucide/play"
     waitingPlayers.innerHTML = ""
     if (waiting.length === 0) {
       waitingPlayers.innerHTML =
-        '<div class="text-neutral-content/40 rounded-xl border border-dashed border-neutral/20 p-3 text-sm">目前沒有等待分隊的裝置</div>'
+        '<div class="text-neutral-content/40 rounded-xl border border-dashed border-neutral/20 p-3 text-sm">目前沒有未選隊伍的玩家</div>'
       return
     }
     for (const player of waiting) {
@@ -290,8 +292,8 @@ import PlayIcon from "~icons/lucide/play"
     const rawTeam = button.dataset.assign
     const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : null
     socket.emit("host:assign_team", { playerId, team }, (res: any) => {
-      if (!res.ok) setHostStatus(`分隊失敗：${res.error}`, true)
-      else setHostStatus("分隊已更新")
+      if (!res.ok) setHostStatus(`隊伍更新失敗：${res.error}`, true)
+      else setHostStatus("隊伍已更新")
     })
   })
 
