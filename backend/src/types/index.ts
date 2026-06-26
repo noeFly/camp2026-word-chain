@@ -52,6 +52,7 @@ export interface RoomState {
   rounds: RoundResult[];
   rules: RoomRules;
   questions: string[]; // host-curated question bank
+  nextTopic: string | null; // host-selected topic for the next round
   hostId: string | null;
   createdAt: number;
   updatedAt: number;
@@ -163,4 +164,5 @@ export type ErrorCode =
   | 'ALREADY_SUBMITTED'
   | 'FORBIDDEN'
   | 'INVALID_PAYLOAD'
-  | 'WRONG_PHASE';
+  | 'WRONG_PHASE'
+  | 'NO_QUESTIONS';

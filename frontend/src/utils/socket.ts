@@ -42,6 +42,14 @@ export function saveSession(session: GameSession): void {
   }
 }
 
+export function updateSessionTeam(team: "A" | "B" | null): void {
+  if (team) {
+    localStorage.setItem("wc_team", team)
+  } else {
+    localStorage.removeItem("wc_team")
+  }
+}
+
 export function getSession(): GameSession | null {
   const roomId = localStorage.getItem("wc_room_id")
   const playerId = localStorage.getItem("wc_player_id")
@@ -49,8 +57,7 @@ export function getSession(): GameSession | null {
   const rawSeat = localStorage.getItem("wc_seat")
   const rawGroupNumber = localStorage.getItem("wc_group_number")
   const groupNumber = rawGroupNumber ? Number(rawGroupNumber) : NaN
-  const inferredTeam = !isNaN(groupNumber) ? (groupNumber <= 5 ? "A" : "B") : null
-  const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : inferredTeam
+  const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : null
   const seat = rawSeat ? Number(rawSeat) : null
 
   if (roomId && playerId && (seat === null || !isNaN(seat)) && !isNaN(groupNumber)) {

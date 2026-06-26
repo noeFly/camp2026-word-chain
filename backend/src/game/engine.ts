@@ -23,9 +23,6 @@ const obsRoom = (id: string) => `${id}:obs`;
 export class GameEngine {
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private pausedRemaining = new Map<string, number>();
-  /** Host-supplied topic for the next round; consumed by toRoundIntro. */
-  private pendingTopic: string | null = null;
-
   private constructor(
     public state: RoomState,
     private readonly io: Server,
@@ -48,6 +45,7 @@ export class GameEngine {
       winsToTakeMatch: WINS_TO_TAKE_MATCH,
     };
     state.questions ??= [];
+    state.nextTopic ??= null;
     const players = await repo.loadPlayers(state.roomId);
     const eng = new GameEngine(state, io, new Map(players.map((p) => [p.playerId, p])));
     if (!state.paused) eng.scheduleAll();
@@ -108,13 +106,14 @@ export class GameEngine {
   }
 
   // ---------- host actions ----------
-  async startMatch(): Promise<void> {
-    if (this.state.phase !== 'LOBBY' && this.state.phase !== 'ROUND_RESULT') return;
+  async startMatch(): Promise<boolean> {
+    if (this.state.phase !== 'LOBBY' && this.state.phase !== 'ROUND_RESULT') return false;
     await this.toRoundIntro();
+    return true;
   }
 
-  async pause(): Promise<void> {
-    if (this.state.paused) return;
+  async pause(): Promise<boolean> {
+    if (this.state.paused) return false;
     const now = Date.now();
     for (const [key, endsAt] of this.activeDeadlines()) {
       this.pausedRemaining.set(key, Math.max(0, endsAt - now));
@@ -124,10 +123,11 @@ export class GameEngine {
     await this.save();
     await this.log({ ts: now, type: 'host_action', detail: 'pause' });
     this.broadcastState();
+    return true;
   }
 
-  async resume(): Promise<void> {
-    if (!this.state.paused) return;
+  async resume(): Promise<boolean> {
+    if (!this.state.paused) return false;
     const now = Date.now();
     for (const [key, remaining] of this.pausedRemaining) {
       const endsAt = now + remaining;
@@ -141,24 +141,29 @@ export class GameEngine {
     this.scheduleAll();
     await this.log({ ts: now, type: 'host_action', detail: 'resume' });
     this.broadcastState();
+    return true;
   }
 
-  async forceJudge(): Promise<void> {
-    if (this.state.phase !== 'CHAINING') return;
+  async forceJudge(): Promise<boolean> {
+    if (this.state.phase !== 'CHAINING') return false;
     await this.log({ ts: Date.now(), type: 'host_action', detail: 'force_judge' });
     await this.toJudging();
+    return true;
   }
 
   /** Host chooses the next round's topic — an explicit question or a random pick from the bank. */
   async setTopic(opts: { topic?: string; random?: boolean }): Promise<boolean> {
     const topic = opts.random ? this.randomQuestion() : opts.topic;
     if (!topic) return false; // random requested but bank empty
-    this.pendingTopic = topic;
-    if (this.state.phase === 'ROUND_INTRO' || this.state.phase === 'CHAINING') {
+
+    this.state.nextTopic = topic;
+    if (this.state.phase === 'ROUND_INTRO') {
       this.state.topic = topic;
-      await this.save();
-      this.broadcastState();
+      this.state.nextTopic = null;
     }
+
+    await this.save();
+    this.broadcastState();
     await this.log({ ts: Date.now(), type: 'host_action', detail: { setTopic: topic } });
     return true;
   }
@@ -193,9 +198,10 @@ export class GameEngine {
     this.broadcastState();
   }
 
-  async skipTurn(team: TeamId): Promise<void> {
-    if (this.state.phase !== 'CHAINING' || this.state.teams[team].done) return;
+  async skipTurn(team: TeamId): Promise<boolean> {
+    if (this.state.phase !== 'CHAINING' || this.state.teams[team].done) return false;
     await this.handleTurnTimeout(team, 'host_skip');
+    return true;
   }
 
   // ---------- player action ----------
@@ -235,8 +241,7 @@ export class GameEngine {
   // ---------- phase transitions ----------
   private async toRoundIntro(): Promise<void> {
     // Topic priority: host's explicit/random pick → random from bank → AI/fallback generator.
-    const topic = this.pendingTopic ?? this.randomQuestion() ?? (await generateTopic());
-    this.pendingTopic = null;
+    const topic = this.state.nextTopic ?? this.randomQuestion() ?? (await generateTopic());
     this.state = startRound(this.state, topic);
     this.state.phase = 'ROUND_INTRO';
     this.state.phaseEndsAt = Date.now() + this.state.rules.introMs;
@@ -449,6 +454,7 @@ export class GameEngine {
       rounds: s.rounds,
       rules: s.rules,
       questions: s.questions,
+      nextTopic: s.nextTopic,
     };
   }
 

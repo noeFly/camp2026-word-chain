@@ -105,13 +105,9 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
         return
       }
 
-      // 後端目前只接受 team，不接受 seat；一隊一台裝置輪流完成所有棒次。
-      const team = groupNum <= 5 ? "A" : "B"
-
       payload = {
         ...payload,
         name: `組別 ${groupNum}`,
-        team,
       }
     }
 

@@ -37,6 +37,7 @@ export function createRoom(roomId: string, hostId: string | null): RoomState {
       winsToTakeMatch: WINS_TO_TAKE_MATCH,
     },
     questions: [],
+    nextTopic: null,
     hostId,
     createdAt: now,
     updatedAt: now,
@@ -49,6 +50,7 @@ export function startRound(state: RoomState, topic: string): RoomState {
     ...state,
     round: state.round + 1,
     topic,
+    nextTopic: null,
     teams: { A: freshTeam(), B: freshTeam() },
   };
 }

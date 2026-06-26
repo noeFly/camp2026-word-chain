@@ -100,7 +100,8 @@ export function registerGateway(io: Server): RoomManager {
     socket.on('match:start', async (_payload: unknown, ack?: Ack) => {
       const eng = await requireHost(manager, data);
       if (!eng) return fail(ack, 'FORBIDDEN');
-      await eng.startMatch();
+      const ok = await eng.startMatch();
+      if (!ok) return fail(ack, 'WRONG_PHASE');
       ack?.({ ok: true });
     });
 
@@ -125,28 +126,32 @@ export function registerGateway(io: Server): RoomManager {
       if (!parsed.success) return fail(ack, 'INVALID_PAYLOAD');
       const eng = await requireHost(manager, data);
       if (!eng) return fail(ack, 'FORBIDDEN');
-      await eng.skipTurn(parsed.data.team);
+      const ok = await eng.skipTurn(parsed.data.team);
+      if (!ok) return fail(ack, 'WRONG_PHASE');
       ack?.({ ok: true });
     });
 
     socket.on('host:pause', async (_p: unknown, ack?: Ack) => {
       const eng = await requireHost(manager, data);
       if (!eng) return fail(ack, 'FORBIDDEN');
-      await eng.pause();
+      const ok = await eng.pause();
+      if (!ok) return fail(ack, 'WRONG_PHASE');
       ack?.({ ok: true });
     });
 
     socket.on('host:resume', async (_p: unknown, ack?: Ack) => {
       const eng = await requireHost(manager, data);
       if (!eng) return fail(ack, 'FORBIDDEN');
-      await eng.resume();
+      const ok = await eng.resume();
+      if (!ok) return fail(ack, 'WRONG_PHASE');
       ack?.({ ok: true });
     });
 
     socket.on('host:force_judge', async (_p: unknown, ack?: Ack) => {
       const eng = await requireHost(manager, data);
       if (!eng) return fail(ack, 'FORBIDDEN');
-      await eng.forceJudge();
+      const ok = await eng.forceJudge();
+      if (!ok) return fail(ack, 'WRONG_PHASE');
       ack?.({ ok: true });
     });
 

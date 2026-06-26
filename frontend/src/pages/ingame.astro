@@ -54,6 +54,104 @@ import ZapIcon from "~icons/lucide/zap"
       </div>
     </div>
 
+    <div
+      id="host-live-setup-panel"
+      class="card bg-base-300 border-primary/10 hidden border shadow-xl">
+      <div class="card-body gap-4 p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="card-title text-primary text-base font-black">主持即時設定</h2>
+          <p id="host-live-status" class="text-neutral-content/50 min-h-[1.25rem] text-xs"></p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr_1.3fr]">
+          <div class="space-y-2">
+            <label class="text-neutral-content/70 text-xs font-bold">題庫</label>
+            <textarea
+              id="live-questions-input"
+              class="textarea textarea-primary min-h-24 w-full text-sm"
+              placeholder="每行一題"></textarea>
+            <button id="live-save-questions-btn" class="btn btn-primary btn-xs w-full"
+              >儲存題庫</button
+            >
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-neutral-content/70 text-xs font-bold">下一回合題目</label>
+            <input
+              id="live-topic-input"
+              class="input input-bordered input-sm w-full"
+              maxlength="60"
+              placeholder="指定下一題"
+            />
+            <div class="grid grid-cols-2 gap-2">
+              <button id="live-set-topic-btn" class="btn btn-secondary btn-xs">指定</button>
+              <button id="live-random-topic-btn" class="btn btn-outline btn-secondary btn-xs"
+                >隨機</button
+              >
+            </div>
+            <p id="live-next-topic-label" class="text-neutral-content/60 min-h-[1.25rem] text-xs"
+            ></p>
+          </div>
+
+          <div class="grid grid-cols-5 gap-2">
+            <label class="form-control">
+              <span class="label-text text-[10px] font-bold">開場秒</span>
+              <input
+                id="live-rule-intro"
+                type="number"
+                min="3"
+                max="300"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control">
+              <span class="label-text text-[10px] font-bold">每棒秒</span>
+              <input
+                id="live-rule-turn"
+                type="number"
+                min="3"
+                max="300"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control">
+              <span class="label-text text-[10px] font-bold">結果秒</span>
+              <input
+                id="live-rule-result"
+                type="number"
+                min="3"
+                max="300"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control">
+              <span class="label-text text-[10px] font-bold">棒次</span>
+              <input
+                id="live-rule-seats"
+                type="number"
+                min="1"
+                max="6"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control">
+              <span class="label-text text-[10px] font-bold">勝場</span>
+              <input
+                id="live-rule-wins"
+                type="number"
+                min="1"
+                max="10"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <button id="live-save-rules-btn" class="btn btn-accent btn-xs col-span-5"
+              >套用規則</button
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ================= PHASE 1: ROUND_INTRO ================= -->
     <div
       id="phase-intro"
@@ -287,7 +385,7 @@ import ZapIcon from "~icons/lucide/zap"
 </Layout>
 
 <script>
-  import { clearSession, getSession, getSocket } from "@/utils/socket"
+  import { clearSession, getSession, getSocket, updateSessionTeam } from "@/utils/socket"
 
   // Shared UI Element References
   const roundNumBadge = document.getElementById("round-num-badge") as HTMLSpanElement
@@ -300,6 +398,26 @@ import ZapIcon from "~icons/lucide/zap"
   const hostPauseBtn = document.getElementById("host-pause-btn") as HTMLButtonElement
   const hostResumeBtn = document.getElementById("host-resume-btn") as HTMLButtonElement
   const hostForceJudgeBtn = document.getElementById("host-force-judge-btn") as HTMLButtonElement
+
+  // Host live setup
+  const hostLiveSetupPanel = document.getElementById("host-live-setup-panel") as HTMLElement
+  const hostLiveStatus = document.getElementById("host-live-status") as HTMLParagraphElement
+  const liveQuestionsInput = document.getElementById("live-questions-input") as HTMLTextAreaElement
+  const liveSaveQuestionsBtn = document.getElementById(
+    "live-save-questions-btn"
+  ) as HTMLButtonElement
+  const liveTopicInput = document.getElementById("live-topic-input") as HTMLInputElement
+  const liveSetTopicBtn = document.getElementById("live-set-topic-btn") as HTMLButtonElement
+  const liveRandomTopicBtn = document.getElementById("live-random-topic-btn") as HTMLButtonElement
+  const liveNextTopicLabel = document.getElementById(
+    "live-next-topic-label"
+  ) as HTMLParagraphElement
+  const liveRuleIntro = document.getElementById("live-rule-intro") as HTMLInputElement
+  const liveRuleTurn = document.getElementById("live-rule-turn") as HTMLInputElement
+  const liveRuleResult = document.getElementById("live-rule-result") as HTMLInputElement
+  const liveRuleSeats = document.getElementById("live-rule-seats") as HTMLInputElement
+  const liveRuleWins = document.getElementById("live-rule-wins") as HTMLInputElement
+  const liveSaveRulesBtn = document.getElementById("live-save-rules-btn") as HTMLButtonElement
 
   // Phase Blocks
   const phaseIntro = document.getElementById("phase-intro") as HTMLDivElement
@@ -330,21 +448,21 @@ import ZapIcon from "~icons/lucide/zap"
   // Re-establish session or join
   socket.on("connect", () => {
     if (role === "player" && session) {
-      socket.emit(
-        "room:rejoin",
-        { roomId, playerId: session.playerId, team: session.team ?? undefined },
-        (res: any) => {
-          if (!res.ok) {
-            clearSession()
-            window.location.href = "/"
-          }
+      socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
+        if (!res.ok) {
+          clearSession()
+          window.location.href = "/"
+        } else {
+          updateSessionTeam(res.team ?? null)
         }
-      )
+      })
     } else {
       socket.emit("room:join", { roomId, role }, (res: any) => {
         if (!res.ok) {
           window.location.href = "/"
+          return
         }
+        if (role === "observer") socket.emit("observer:subscribe", {}, () => {})
       })
     }
   })
@@ -352,10 +470,13 @@ import ZapIcon from "~icons/lucide/zap"
   // Host Action Panel Initialization
   if (role === "host" && hostActionsPanel) {
     hostActionsPanel.classList.remove("hidden")
+    hostLiveSetupPanel?.classList.remove("hidden")
   }
 
   // Active timers tracking to prevent overlapping
   let countdownTimer: any = null
+  let liveRulesDirty = false
+  let liveQuestionsDirty = false
 
   let clearActiveTimer = () => {
     if (countdownTimer) {
@@ -364,10 +485,18 @@ import ZapIcon from "~icons/lucide/zap"
     }
   }
 
+  socket.on("presence:update", ({ players }: { players: any[] }) => {
+    const currentSession = getSession()
+    const me = currentSession ? players.find((p) => p.playerId === currentSession.playerId) : null
+    if (me) updateSessionTeam(me.team ?? null)
+  })
+
   // Core Room State Listener
   socket.on("room:state", (state: any) => {
     console.log("Active Game Room State:", state)
     clearActiveTimer()
+
+    syncLiveHostForm(state)
 
     // 1. Update Global Header Info
     if (roundNumBadge) roundNumBadge.textContent = `Round ${state.round}`
@@ -440,8 +569,8 @@ import ZapIcon from "~icons/lucide/zap"
 
         introRadial.textContent = `${seconds}s`
 
-        // 30s is standard duration, map percentage
-        const pct = Math.min(100, Math.max(0, (remaining / 30000) * 100))
+        const introMs = state.rules?.introMs ?? 30000
+        const pct = Math.min(100, Math.max(0, (remaining / introMs) * 100))
         introRadial.style.setProperty("--value", String(pct))
 
         if (remaining <= 0) {
@@ -486,16 +615,17 @@ import ZapIcon from "~icons/lucide/zap"
     }
 
     // Render team chain blocks
-    populateChainList("A", state.teams.A, chainListA, "info")
-    populateChainList("B", state.teams.B, chainListB, "secondary")
+    populateChainList("A", state.teams.A, chainListA, "info", state.rules?.seats ?? 6)
+    populateChainList("B", state.teams.B, chainListB, "secondary", state.rules?.seats ?? 6)
 
     // Sync Turn timers (20s TurnMs is standard) — freeze while paused
     syncTurnTimer("A", state.teams.A, timerTeamA, state.paused)
     syncTurnTimer("B", state.teams.B, timerTeamB, state.paused)
 
     // Handle submission panel activation. Players may still be waiting for host assignment.
-    if (role === "player" && session) {
-      const myTeam = session.team
+    const liveSession = getSession()
+    if (role === "player" && liveSession) {
+      const myTeam = liveSession.team
 
       if (!myTeam) {
         submitStatusBanner?.classList.remove("hidden")
@@ -546,13 +676,13 @@ import ZapIcon from "~icons/lucide/zap"
     _teamId: "A" | "B",
     teamState: any,
     container: HTMLDivElement,
-    badgeColor: string
+    badgeColor: string,
+    seats: number
   ) {
     if (!container) return
     container.innerHTML = ""
 
-    // SEATS = 6
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= seats; i++) {
       const val = teamState.segments[i - 1] // segment is index i-1
       const isCurrentActive = !teamState.done && teamState.currentSeat === i
 
@@ -781,6 +911,90 @@ import ZapIcon from "~icons/lucide/zap"
     sessionStorage.clear()
     window.location.href = "/"
   })
+
+  liveQuestionsInput?.addEventListener("input", () => (liveQuestionsDirty = true))
+  ;[liveRuleIntro, liveRuleTurn, liveRuleResult, liveRuleSeats, liveRuleWins].forEach((el) =>
+    el?.addEventListener("input", () => (liveRulesDirty = true))
+  )
+
+  liveSaveQuestionsBtn?.addEventListener("click", () => {
+    const questions = liveQuestionsInput.value
+      .split("\n")
+      .map((q) => q.trim())
+      .filter(Boolean)
+      .slice(0, 200)
+    socket.emit("host:set_questions", { questions }, (res: any) => {
+      if (!res.ok) setLiveHostStatus(`題庫儲存失敗：${res.error}`, true)
+      else {
+        liveQuestionsDirty = false
+        setLiveHostStatus(`題庫已儲存（${questions.length} 題）`)
+      }
+    })
+  })
+
+  liveSetTopicBtn?.addEventListener("click", () => {
+    const topic = liveTopicInput.value.trim()
+    if (!topic) return setLiveHostStatus("請先輸入下一題", true)
+    socket.emit("host:set_topic", { topic }, (res: any) => {
+      if (!res.ok) setLiveHostStatus(`指定題目失敗：${res.error}`, true)
+      else setLiveHostStatus("下一題已指定")
+    })
+  })
+
+  liveRandomTopicBtn?.addEventListener("click", () => {
+    socket.emit("host:set_topic", { random: true }, (res: any) => {
+      if (!res.ok) setLiveHostStatus(`隨機題目失敗：${res.error}`, true)
+      else setLiveHostStatus("已從題庫隨機選題")
+    })
+  })
+
+  liveSaveRulesBtn?.addEventListener("click", () => {
+    const payload: Record<string, number> = {}
+    const addMs = (key: string, input: HTMLInputElement) => {
+      const n = Number(input.value)
+      if (!Number.isNaN(n)) payload[key] = Math.round(n * 1000)
+    }
+    addMs("introMs", liveRuleIntro)
+    addMs("turnMs", liveRuleTurn)
+    addMs("resultMs", liveRuleResult)
+    const seats = Number(liveRuleSeats.value)
+    const wins = Number(liveRuleWins.value)
+    if (!Number.isNaN(seats)) payload.seats = Math.round(seats)
+    if (!Number.isNaN(wins)) payload.winsToTakeMatch = Math.round(wins)
+    socket.emit("host:set_rules", payload, (res: any) => {
+      if (!res.ok) setLiveHostStatus(`規則套用失敗：${res.error}`, true)
+      else {
+        liveRulesDirty = false
+        setLiveHostStatus("規則已套用")
+      }
+    })
+  })
+
+  function syncLiveHostForm(state: any) {
+    if (role !== "host") return
+    if (!liveQuestionsDirty && liveQuestionsInput)
+      liveQuestionsInput.value = (state.questions ?? []).join("\n")
+    if (!liveRulesDirty && state.rules) {
+      liveRuleIntro.value = String(Math.round(state.rules.introMs / 1000))
+      liveRuleTurn.value = String(Math.round(state.rules.turnMs / 1000))
+      liveRuleResult.value = String(Math.round(state.rules.resultMs / 1000))
+      liveRuleSeats.value = String(state.rules.seats)
+      liveRuleWins.value = String(state.rules.winsToTakeMatch)
+    }
+    if (liveNextTopicLabel) {
+      liveNextTopicLabel.textContent = state.nextTopic
+        ? `下一題：${state.nextTopic}`
+        : "未指定下一題"
+    }
+  }
+
+  function setLiveHostStatus(message: string, isError = false) {
+    if (!hostLiveStatus) return
+    hostLiveStatus.textContent = message
+    hostLiveStatus.className = isError
+      ? "text-error min-h-[1.25rem] text-xs font-bold"
+      : "text-success min-h-[1.25rem] text-xs font-bold"
+  }
 
   // ================= HOST CONTROL ACTIONS EVENT LISTENERS =================
   hostPauseBtn?.addEventListener("click", () => {

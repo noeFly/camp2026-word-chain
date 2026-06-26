@@ -5,17 +5,15 @@ import PlayIcon from "~icons/lucide/play"
 ---
 
 <Layout>
-  <div class="flex w-full max-w-5xl flex-col gap-y-6">
-    <!-- Header -->
+  <div class="flex w-full max-w-6xl flex-col gap-y-6 overflow-y-auto px-2 py-4 md:px-0">
     <div
-      class="navbar bg-base-300 border-primary/10 justify-between rounded-2xl border px-6 shadow-xl">
+      class="navbar bg-base-300 border-primary/10 flex-wrap justify-between gap-3 rounded-2xl border px-6 shadow-xl">
       <div class="flex flex-col items-start">
         <h1 class="text-primary text-2xl font-black tracking-wide">AI 謎題接龍 — 遊戲大廳</h1>
         <p id="room-id-display" class="text-neutral-content/60 font-mono text-xs">載入中...</p>
       </div>
 
       <div class="flex items-center gap-x-3">
-        <!-- Host Controls -->
         <button
           id="start-game-btn"
           class="btn btn-success btn-md shadow-success/20 hidden shadow-lg">
@@ -23,44 +21,148 @@ import PlayIcon from "~icons/lucide/play"
           <span>開始比賽</span>
         </button>
 
-        <button id="exit-btn" class="btn btn-ghost btn-circle btn-md text-error hover:bg-error/10">
+        <button
+          id="exit-btn"
+          class="btn btn-ghost btn-circle btn-md text-error hover:bg-error/10"
+          title="離開房間">
           <LogOutIcon class="h-5 w-5" />
         </button>
       </div>
     </div>
 
-    <!-- Main Content Grid -->
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-      <!-- Team A Panel -->
-      <div class="card bg-base-300 border-info/10 border shadow-xl">
-        <div class="card-body p-6">
-          <div
-            class="border-neutral-content/10 mb-4 flex items-center justify-between border-b pb-2">
-            <h2 class="card-title text-info text-xl font-black">藍色小隊 — Team A</h2>
-            <span id="score-a" class="badge badge-info p-3 font-bold">大分: 0</span>
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+      <div class="flex flex-col gap-6">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div class="card bg-base-300 border-info/10 border shadow-xl">
+            <div class="card-body p-6">
+              <div
+                class="border-neutral-content/10 mb-4 flex items-center justify-between border-b pb-2">
+                <h2 class="card-title text-info text-xl font-black">藍色小隊 — Team A</h2>
+                <span id="score-a" class="badge badge-info p-3 font-bold">大分: 0</span>
+              </div>
+              <div class="space-y-2" id="team-a-players"></div>
+            </div>
           </div>
-          <div class="space-y-2" id="team-a-players">
-            <!-- Dynamically populated -->
+
+          <div class="card bg-base-300 border-secondary/10 border shadow-xl">
+            <div class="card-body p-6">
+              <div
+                class="border-neutral-content/10 mb-4 flex items-center justify-between border-b pb-2">
+                <h2 class="card-title text-secondary text-xl font-black">橘色小隊 — Team B</h2>
+                <span id="score-b" class="badge badge-secondary p-3 font-bold">大分: 0</span>
+              </div>
+              <div class="space-y-2" id="team-b-players"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="waiting-panel" class="card bg-base-300 border-warning/10 border shadow-xl">
+          <div class="card-body p-6">
+            <div
+              class="border-neutral-content/10 mb-3 flex items-center justify-between border-b pb-2">
+              <h2 class="card-title text-warning text-lg font-black">等待主持人分隊</h2>
+              <span id="waiting-count" class="badge badge-warning font-bold">0</span>
+            </div>
+            <div id="waiting-players" class="grid grid-cols-1 gap-2 md:grid-cols-2"></div>
           </div>
         </div>
       </div>
 
-      <!-- Team B Panel -->
-      <div class="card bg-base-300 border-secondary/10 border shadow-xl">
-        <div class="card-body p-6">
-          <div
-            class="border-neutral-content/10 mb-4 flex items-center justify-between border-b pb-2">
-            <h2 class="card-title text-secondary text-xl font-black">橘色小隊 — Team B</h2>
-            <span id="score-b" class="badge badge-secondary p-3 font-bold">大分: 0</span>
+      <aside
+        id="host-setup-panel"
+        class="card bg-base-300 border-primary/10 hidden border shadow-xl">
+        <div class="card-body gap-5 p-5">
+          <div>
+            <h2 class="card-title text-primary text-lg font-black">主持設定</h2>
+            <p id="host-save-status" class="text-neutral-content/50 min-h-[1.25rem] text-xs"></p>
           </div>
-          <div class="space-y-2" id="team-b-players">
-            <!-- Dynamically populated -->
+
+          <div class="space-y-2">
+            <label class="text-neutral-content/70 text-xs font-bold"
+              >題庫（每行一題，最多 200 題）</label
+            >
+            <textarea
+              id="questions-input"
+              class="textarea textarea-primary min-h-32 w-full font-medium"
+              maxlength="13000"
+              placeholder="請輸入題目，每行一題"></textarea>
+            <button id="save-questions-btn" class="btn btn-primary btn-sm w-full">儲存題庫</button>
           </div>
+
+          <div class="space-y-2">
+            <label class="text-neutral-content/70 text-xs font-bold">下一回合題目</label>
+            <input
+              id="topic-input"
+              class="input input-bordered input-sm w-full"
+              maxlength="60"
+              placeholder="指定下一題"
+            />
+            <div class="grid grid-cols-2 gap-2">
+              <button id="set-topic-btn" class="btn btn-secondary btn-sm">指定題目</button>
+              <button id="random-topic-btn" class="btn btn-outline btn-secondary btn-sm"
+                >題庫隨機</button
+              >
+            </div>
+            <p id="next-topic-label" class="text-neutral-content/60 min-h-[1.25rem] text-xs"></p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <label class="form-control">
+              <span class="label-text text-xs font-bold">開場秒數</span>
+              <input
+                id="rule-intro"
+                type="number"
+                min="3"
+                max="300"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control">
+              <span class="label-text text-xs font-bold">每棒秒數</span>
+              <input
+                id="rule-turn"
+                type="number"
+                min="3"
+                max="300"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control">
+              <span class="label-text text-xs font-bold">結果秒數</span>
+              <input
+                id="rule-result"
+                type="number"
+                min="3"
+                max="300"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control">
+              <span class="label-text text-xs font-bold">棒次數</span>
+              <input
+                id="rule-seats"
+                type="number"
+                min="1"
+                max="6"
+                class="input input-bordered input-sm"
+              />
+            </label>
+            <label class="form-control col-span-2">
+              <span class="label-text text-xs font-bold">勝場所需局數</span>
+              <input
+                id="rule-wins"
+                type="number"
+                min="1"
+                max="10"
+                class="input input-bordered input-sm"
+              />
+            </label>
+          </div>
+          <button id="save-rules-btn" class="btn btn-accent btn-sm w-full">套用規則</button>
         </div>
-      </div>
+      </aside>
     </div>
 
-    <!-- Bottom Information Status -->
     <div class="card bg-base-200 border-primary/5 border p-4 text-center text-sm font-medium">
       <p id="lobby-status-text" class="text-neutral-content/70">正在與伺服器建立同步連線...</p>
     </div>
@@ -68,7 +170,7 @@ import PlayIcon from "~icons/lucide/play"
 </Layout>
 
 <script>
-  import { clearSession, getSession, getSocket } from "@/utils/socket"
+  import { clearSession, getSession, getSocket, updateSessionTeam } from "@/utils/socket"
 
   const roomIdDisplay = document.getElementById("room-id-display") as HTMLParagraphElement
   const lobbyStatusText = document.getElementById("lobby-status-text") as HTMLParagraphElement
@@ -78,144 +180,220 @@ import PlayIcon from "~icons/lucide/play"
   const scoreB = document.getElementById("score-b") as HTMLSpanElement
   const teamAPlayers = document.getElementById("team-a-players") as HTMLDivElement
   const teamBPlayers = document.getElementById("team-b-players") as HTMLDivElement
+  const waitingPlayers = document.getElementById("waiting-players") as HTMLDivElement
+  const waitingCount = document.getElementById("waiting-count") as HTMLSpanElement
+  const hostSetupPanel = document.getElementById("host-setup-panel") as HTMLElement
+  const hostSaveStatus = document.getElementById("host-save-status") as HTMLParagraphElement
+  const questionsInput = document.getElementById("questions-input") as HTMLTextAreaElement
+  const saveQuestionsBtn = document.getElementById("save-questions-btn") as HTMLButtonElement
+  const topicInput = document.getElementById("topic-input") as HTMLInputElement
+  const setTopicBtn = document.getElementById("set-topic-btn") as HTMLButtonElement
+  const randomTopicBtn = document.getElementById("random-topic-btn") as HTMLButtonElement
+  const nextTopicLabel = document.getElementById("next-topic-label") as HTMLParagraphElement
+  const ruleIntro = document.getElementById("rule-intro") as HTMLInputElement
+  const ruleTurn = document.getElementById("rule-turn") as HTMLInputElement
+  const ruleResult = document.getElementById("rule-result") as HTMLInputElement
+  const ruleSeats = document.getElementById("rule-seats") as HTMLInputElement
+  const ruleWins = document.getElementById("rule-wins") as HTMLInputElement
+  const saveRulesBtn = document.getElementById("save-rules-btn") as HTMLButtonElement
 
   const session = getSession()
   const role = sessionStorage.getItem("wc_role") || (session ? "player" : null)
   const roomId = session?.roomId || sessionStorage.getItem("wc_room_id") || "sitcon-camp-2026"
+  let currentPlayers: any[] = []
+  let rulesDirty = false
+  let questionsDirty = false
 
-  if (!role) {
-    // 沒登入導回首頁
-    window.location.href = "/"
-  }
-
-  if (roomIdDisplay) {
+  if (!role) window.location.href = "/"
+  if (roomIdDisplay)
     roomIdDisplay.textContent = `ROOM: ${roomId} | Role: ${role ? role.toUpperCase() : ""}`
+  if (role === "host") {
+    startGameBtn?.classList.remove("hidden")
+    hostSetupPanel?.classList.remove("hidden")
   }
 
   const socket = getSocket()
+  if (!socket.connected) socket.connect()
 
-  if (!socket.connected) {
-    socket.connect()
-  }
-
-  // 1. 連線 & 角色加入
   socket.on("connect", () => {
     if (role === "player" && session) {
-      socket.emit(
-        "room:rejoin",
-        { roomId, playerId: session.playerId, team: session.team ?? undefined },
-        (res: any) => {
-          if (!res.ok) {
-            console.error("重連失敗：", res.error)
-            clearSession()
-            window.location.href = "/"
-          } else {
-            console.log("重連成功", res)
-            lobbyStatusText.textContent = "已成功同步房間狀態，等待主持人開始比賽..."
-          }
+      socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
+        if (!res.ok) {
+          clearSession()
+          window.location.href = "/"
+          return
         }
-      )
+        updateSessionTeam(res.team ?? null)
+        lobbyStatusText.textContent = res.team
+          ? `已分配至 Team ${res.team}，等待主持人開始比賽...`
+          : "已進入等待區，等待主持人分配隊伍..."
+      })
     } else {
-      // Host 或 Observer 模式
       socket.emit("room:join", { roomId, role }, (res: any) => {
         if (!res.ok) {
-          console.error("加入失敗：", res.error)
           window.location.href = "/"
-        } else {
-          console.log("加入成功", res)
-          if (role === "host") {
-            startGameBtn?.classList.remove("hidden")
-            lobbyStatusText.textContent = "您是主持人，請等待各組登入後，點擊「開始比賽」"
-          } else {
-            lobbyStatusText.textContent = "觀戰大螢幕模式中，等待主持人開始比賽..."
-          }
+          return
         }
+        if (role === "observer") socket.emit("observer:subscribe", {}, () => {})
+        lobbyStatusText.textContent =
+          role === "host"
+            ? "您是主持人，請完成分隊與題目設定。"
+            : "觀戰大螢幕模式中，等待主持人開始比賽..."
       })
     }
   })
 
-  // 2. 監聽房間狀態變更
   socket.on("room:state", (state: any) => {
-    console.log("Room State:", state)
-
-    // 大分更新
     if (scoreA) scoreA.textContent = `大分: ${state.score.A}`
     if (scoreB) scoreB.textContent = `大分: ${state.score.B}`
-
-    // 如果階段已經進入 ROUND_INTRO 或是 CHAINING，自動導向遊玩頁面
-    if (state.phase !== "LOBBY") {
-      window.location.href = "/ingame"
-    }
+    syncHostForm(state)
+    if (state.phase !== "LOBBY") window.location.href = "/ingame"
   })
 
-  // 3. 監聽在線名單變更，渲染在線表格
   socket.on("presence:update", ({ players }: { players: any[] }) => {
-    console.log("Presence Update:", players)
-
-    // 渲染 Team A (座號 1-6)
-    renderTeamList("A", players, teamAPlayers, "info")
-    // 渲染 Team B (座號 1-6)
-    renderTeamList("B", players, teamBPlayers, "secondary")
+    currentPlayers = players
+    const me = session ? players.find((p) => p.playerId === session.playerId) : null
+    if (me) updateSessionTeam(me.team ?? null)
+    renderPresence()
   })
 
-  function renderTeamList(
-    teamId: "A" | "B",
-    players: any[],
-    container: HTMLDivElement,
-    badgeColor: string
-  ) {
+  function renderPresence() {
+    renderTeamDevice("A", teamAPlayers, "info")
+    renderTeamDevice("B", teamBPlayers, "secondary")
+    renderWaitingPlayers()
+  }
+
+  function renderTeamDevice(teamId: "A" | "B", container: HTMLDivElement, color: string) {
     if (!container) return
+    const player = currentPlayers.find((p) => p.team === teamId)
+    const isMine = Boolean(session && player?.playerId === session.playerId)
     container.innerHTML = ""
+    const row = document.createElement("div")
+    const colorClasses =
+      color === "info"
+        ? { border: "border-info/20", text: "text-info" }
+        : { border: "border-secondary/20", text: "text-secondary" }
+    row.className = `flex items-center justify-between rounded-xl border ${colorClasses.border} bg-base-200 p-3`
+    const name = player ? `${player.name}${isMine ? " (你)" : ""}` : "尚未指派裝置"
+    const status = player
+      ? player.connected
+        ? '<span class="badge badge-success badge-xs py-1 px-1.5 font-bold text-[9px]">ON</span>'
+        : '<span class="badge badge-error badge-xs py-1 px-1.5 font-bold text-[9px]">OFF</span>'
+      : ""
+    const hostControls =
+      role === "host" && player
+        ? `<button class="btn btn-ghost btn-xs text-warning" data-assign="" data-player-id="${player.playerId}">移回等待區</button>`
+        : ""
+    row.innerHTML = `
+      <div class="min-w-0">
+        <div class="${colorClasses.text} text-xs font-black">Team ${teamId} 裝置</div>
+        <div class="truncate text-base font-extrabold">${escapeHtml(name)}</div>
+      </div>
+      <div class="flex items-center gap-2">${status}${hostControls}</div>
+    `
+    container.appendChild(row)
+  }
 
-    // 建立 1..6 棒的空欄
-    for (let i = 1; i <= 6; i++) {
-      const player = players.find((p) => p.team === teamId && p.seat === i)
-      const isCurrentPlayer = session && session.team === teamId && session.seat === i
-
-      const div = document.createElement("div")
-      div.className = `flex justify-between items-center p-3 rounded-xl bg-base-200 border ${
-        isCurrentPlayer
-          ? `border-${badgeColor}/60 bg-${badgeColor}/5 shadow-inner`
-          : "border-neutral/20"
-      }`
-
-      const seatBadge = `<span class="badge badge-${badgeColor} font-black min-w-[2.2rem]">第 ${i} 棒</span>`
-      let nameText = `<span class="text-neutral-content/40 font-medium">座位待加入...</span>`
-      let statusIcon = ""
-
-      if (player) {
-        const connBadge = player.connected
-          ? `<span class="badge badge-success badge-xs py-1 px-1.5 font-bold text-[9px]">ON</span>`
-          : `<span class="badge badge-error badge-xs py-1 px-1.5 font-bold text-[9px] text-error-content animate-pulse">OFF</span>`
-
-        nameText = `<span class="font-extrabold text-base ${isCurrentPlayer ? `text-${badgeColor}` : "text-neutral-content"}">${player.name} ${isCurrentPlayer ? " (你)" : ""}</span>`
-        statusIcon = connBadge
-      }
-
-      div.innerHTML = `
-        <div class="flex items-center gap-x-3">
-          ${seatBadge}
-          ${nameText}
-        </div>
-        <div>
-          ${statusIcon}
-        </div>
-      `
-
-      container.appendChild(div)
+  function renderWaitingPlayers() {
+    if (!waitingPlayers) return
+    const waiting = currentPlayers.filter((p) => !p.team)
+    waitingCount.textContent = String(waiting.length)
+    waitingPlayers.innerHTML = ""
+    if (waiting.length === 0) {
+      waitingPlayers.innerHTML =
+        '<div class="text-neutral-content/40 rounded-xl border border-dashed border-neutral/20 p-3 text-sm">目前沒有等待分隊的裝置</div>'
+      return
+    }
+    for (const player of waiting) {
+      const row = document.createElement("div")
+      row.className =
+        "flex items-center justify-between rounded-xl border border-warning/15 bg-base-200 p-3"
+      const controls =
+        role === "host"
+          ? `<div class="join"><button class="btn btn-info btn-xs join-item" data-assign="A" data-player-id="${player.playerId}">A</button><button class="btn btn-secondary btn-xs join-item" data-assign="B" data-player-id="${player.playerId}">B</button></div>`
+          : ""
+      row.innerHTML = `<span class="font-bold">${escapeHtml(player.name)}</span>${controls}`
+      waitingPlayers.appendChild(row)
     }
   }
 
-  // 4. 開始遊戲按鈕
-  startGameBtn?.addEventListener("click", () => {
-    socket.emit("match:start", {}, (res: any) => {
-      if (!res.ok) {
-        alert(`開始失敗：${res.error}`)
+  document.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement
+    const button = target.closest("button[data-player-id]") as HTMLButtonElement | null
+    if (!button) return
+    const playerId = button.dataset.playerId
+    const rawTeam = button.dataset.assign
+    const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : null
+    socket.emit("host:assign_team", { playerId, team }, (res: any) => {
+      if (!res.ok) setHostStatus(`分隊失敗：${res.error}`, true)
+      else setHostStatus("分隊已更新")
+    })
+  })
+
+  questionsInput?.addEventListener("input", () => (questionsDirty = true))
+  ;[ruleIntro, ruleTurn, ruleResult, ruleSeats, ruleWins].forEach((el) =>
+    el?.addEventListener("input", () => (rulesDirty = true))
+  )
+
+  saveQuestionsBtn?.addEventListener("click", () => {
+    const questions = questionsInput.value
+      .split("\n")
+      .map((q) => q.trim())
+      .filter(Boolean)
+      .slice(0, 200)
+    socket.emit("host:set_questions", { questions }, (res: any) => {
+      if (!res.ok) setHostStatus(`題庫儲存失敗：${res.error}`, true)
+      else {
+        questionsDirty = false
+        setHostStatus(`題庫已儲存（${questions.length} 題）`)
       }
     })
   })
 
-  // 5. 退出大廳按鈕
+  setTopicBtn?.addEventListener("click", () => {
+    const topic = topicInput.value.trim()
+    if (!topic) return setHostStatus("請先輸入下一題", true)
+    socket.emit("host:set_topic", { topic }, (res: any) => {
+      if (!res.ok) setHostStatus(`指定題目失敗：${res.error}`, true)
+      else setHostStatus("下一題已指定")
+    })
+  })
+
+  randomTopicBtn?.addEventListener("click", () => {
+    socket.emit("host:set_topic", { random: true }, (res: any) => {
+      if (!res.ok) setHostStatus(`隨機題目失敗：${res.error}`, true)
+      else setHostStatus("已從題庫隨機選題")
+    })
+  })
+
+  saveRulesBtn?.addEventListener("click", () => {
+    const payload: Record<string, number> = {}
+    const addMs = (key: string, input: HTMLInputElement) => {
+      const n = Number(input.value)
+      if (!Number.isNaN(n)) payload[key] = Math.round(n * 1000)
+    }
+    addMs("introMs", ruleIntro)
+    addMs("turnMs", ruleTurn)
+    addMs("resultMs", ruleResult)
+    const seats = Number(ruleSeats.value)
+    const wins = Number(ruleWins.value)
+    if (!Number.isNaN(seats)) payload.seats = Math.round(seats)
+    if (!Number.isNaN(wins)) payload.winsToTakeMatch = Math.round(wins)
+    socket.emit("host:set_rules", payload, (res: any) => {
+      if (!res.ok) setHostStatus(`規則套用失敗：${res.error}`, true)
+      else {
+        rulesDirty = false
+        setHostStatus("規則已套用")
+      }
+    })
+  })
+
+  startGameBtn?.addEventListener("click", () => {
+    socket.emit("match:start", {}, (res: any) => {
+      if (!res.ok) alert(`開始失敗：${res.error}`)
+    })
+  })
+
   exitBtn?.addEventListener("click", () => {
     if (confirm("確認離開房間嗎？")) {
       clearSession()
@@ -223,4 +401,35 @@ import PlayIcon from "~icons/lucide/play"
       window.location.href = "/"
     }
   })
+
+  function syncHostForm(state: any) {
+    if (role !== "host") return
+    if (!questionsDirty) questionsInput.value = (state.questions ?? []).join("\n")
+    if (!rulesDirty && state.rules) {
+      ruleIntro.value = String(Math.round(state.rules.introMs / 1000))
+      ruleTurn.value = String(Math.round(state.rules.turnMs / 1000))
+      ruleResult.value = String(Math.round(state.rules.resultMs / 1000))
+      ruleSeats.value = String(state.rules.seats)
+      ruleWins.value = String(state.rules.winsToTakeMatch)
+    }
+    nextTopicLabel.textContent = state.nextTopic
+      ? `下一題：${state.nextTopic}`
+      : "尚未指定下一題，開始時會從題庫或 AI 產生。"
+  }
+
+  function setHostStatus(message: string, isError = false) {
+    if (!hostSaveStatus) return
+    hostSaveStatus.textContent = message
+    hostSaveStatus.className = isError
+      ? "text-error min-h-[1.25rem] text-xs font-bold"
+      : "text-success min-h-[1.25rem] text-xs font-bold"
+  }
+
+  function escapeHtml(value: string) {
+    return value.replace(
+      /[&<>'"]/g,
+      (char) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char] ?? char
+    )
+  }
 </script>
