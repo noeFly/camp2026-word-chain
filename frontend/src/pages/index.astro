@@ -4,20 +4,11 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
 ---
 
 <Layout>
-  <div
-    class="card bg-base-300 border-primary/20 flex w-full max-w-md flex-col items-center gap-y-6 border p-6 shadow-2xl">
-    <h1 class="text-primary text-center text-4xl font-extrabold tracking-wider drop-shadow-sm"
-      >AI 謎題接龍</h1
-    >
-    <p class="text-neutral-content/80 text-center text-sm"
-      >SITCON Camp 2026 智慧出題與公正 AI 評審</p
-    >
-
-    <div class="flex w-full flex-col items-center gap-y-4">
-      <div class="form-control w-full max-w-xs">
-        <label class="label justify-center">
-          <span class="label-text text-base font-semibold">請輸入你的組別編號登入</span>
-        </label>
+  <div class="card bg-base-300 w-full max-w-sm">
+    <div class="card-body">
+      <h1 class="text-primary text-center text-4xl font-bold tracking-widest">AI 謎題接龍</h1>
+      <div class="flex w-full flex-col items-center gap-y-4">
+        <span>請輸入組別編號登入</span>
 
         <div class="join w-full justify-center">
           <input
@@ -27,38 +18,23 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
             min="1"
             max="10"
             placeholder="1"
-            title="請輸入組別編號 (1-10)"
+            title="請輸入組別編號 (1～10)"
             class="input input-primary join-item input-lg w-24 text-center text-2xl font-bold"
           />
-          <button id="login-btn" class="btn join-item btn-primary btn-lg w-16">
-            <ChevronRightIcon class="h-6 w-6" />
+          <button id="login-btn" class="btn join-item btn-primary btn-lg w-10 p-0">
+            <ChevronRightIcon class="size-6" />
           </button>
         </div>
 
-        <label class="label justify-center">
-          <span
-            id="error-msg"
-            class="label-text-alt text-error mt-1 min-h-[1.5rem] text-center font-medium"></span>
-        </label>
+        <span id="error-msg" class="text-error min-h-6 text-center"></span>
       </div>
-    </div>
 
-    <div class="divider my-0"></div>
+      <div class="divider my-0">或</div>
 
-    <div class="flex gap-x-4 text-xs">
-      <a
-        id="host-login"
-        href="#"
-        class="link link-hover text-primary/75 hover:text-primary font-medium"
-        >主辦方主控面板 (Host)</a
-      >
-      <span class="text-neutral-content/30">|</span>
-      <a
-        id="obs-login"
-        href="#"
-        class="link link-hover text-secondary/75 hover:text-secondary font-medium"
-        >觀戰大螢幕 (Observer)</a
-      >
+      <div class="flex justify-center gap-x-4">
+        <a id="host-login" href="#" class="btn">主辦方</a>
+        <a id="obs-login" href="#" class="btn">旁觀者</a>
+      </div>
     </div>
   </div>
 </Layout>

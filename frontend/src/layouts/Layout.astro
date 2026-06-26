@@ -13,8 +13,10 @@ import "@/styles/global.css"
     <title>AI Word Chain</title>
   </head>
   <body>
-    <main class="flex h-dvh w-dvw flex-col items-center justify-center gap-y-4 px-8 py-4">
-      <slot />
+    <main class="mx-auto h-dvh w-dvw max-w-md p-4">
+      <div class="mx-auto my-auto grid h-fit w-fit gap-y-4">
+        <slot />
+      </div>
     </main>
   </body>
 </html>

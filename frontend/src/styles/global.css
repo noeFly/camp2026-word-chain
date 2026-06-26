@@ -10,10 +10,6 @@ body {
   box-sizing: border-box;
 }
 
-* {
-  @apply m-0 p-0;
-}
-
 /* 移除上下箭頭 */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {

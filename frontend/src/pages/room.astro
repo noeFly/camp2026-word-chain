@@ -5,166 +5,133 @@ import PlayIcon from "~icons/lucide/play"
 ---
 
 <Layout>
-  <div class="flex w-full max-w-6xl flex-col gap-y-6 overflow-y-auto px-2 py-4 md:px-0">
-    <div
-      class="navbar bg-base-300 border-primary/10 flex-wrap justify-between gap-3 rounded-2xl border px-6 shadow-xl">
-      <div class="flex flex-col items-start">
-        <h1 class="text-primary text-2xl font-black tracking-wide">AI 謎題接龍 — 遊戲大廳</h1>
-        <p id="room-id-display" class="text-neutral-content/60 font-mono text-xs">載入中...</p>
-      </div>
+  <div class="card bg-base-300 w-full">
+    <div class="card-body gap-y-2">
+      <div class="flex">
+        <div class="grid flex-1 gap-y-1">
+          <h1 class="text-primary text-2xl font-black tracking-wide">AI 謎題接龍 - 遊戲大廳</h1>
+          <p id="room-id-display" class="text-neutral-content/60 font-mono text-xs">載入中...</p>
+          <p id="lobby-status-text" class="text-neutral-content/70">正在與伺服器建立同步連線...</p>
+        </div>
 
-      <div class="flex items-center gap-x-3">
-        <button
-          id="start-game-btn"
-          class="btn btn-success btn-md shadow-success/20 hidden shadow-lg">
-          <PlayIcon class="mr-1 h-5 w-5" />
-          <span>開始比賽</span>
-        </button>
-
-        <button
-          id="exit-btn"
-          class="btn btn-ghost btn-circle btn-md text-error hover:bg-error/10"
-          title="離開房間">
-          <LogOutIcon class="h-5 w-5" />
+        <button id="exit-btn" class="btn btn-ghost btn-circle btn-error" title="離開房間">
+          <LogOutIcon class="size-5" />
         </button>
       </div>
     </div>
+  </div>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-      <div class="flex flex-col gap-6">
-        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div class="card bg-base-300 border-info/10 border shadow-xl">
-            <div class="card-body p-6">
-              <div
-                class="border-neutral-content/10 mb-4 flex items-center justify-between border-b pb-2">
-                <h2 class="card-title text-info text-xl font-black">藍色小隊 — Team A</h2>
-                <span id="score-a" class="badge badge-info p-3 font-bold">大分: 0</span>
-              </div>
-              <div class="space-y-2" id="team-a-players"></div>
-            </div>
-          </div>
-
-          <div class="card bg-base-300 border-secondary/10 border shadow-xl">
-            <div class="card-body p-6">
-              <div
-                class="border-neutral-content/10 mb-4 flex items-center justify-between border-b pb-2">
-                <h2 class="card-title text-secondary text-xl font-black">橘色小隊 — Team B</h2>
-                <span id="score-b" class="badge badge-secondary p-3 font-bold">大分: 0</span>
-              </div>
-              <div class="space-y-2" id="team-b-players"></div>
-            </div>
-          </div>
-        </div>
-
-        <div id="waiting-panel" class="card bg-base-300 border-warning/10 border shadow-xl">
-          <div class="card-body p-6">
-            <div
-              class="border-neutral-content/10 mb-3 flex items-center justify-between border-b pb-2">
-              <h2 class="card-title text-warning text-lg font-black">等待主持人分隊</h2>
-              <span id="waiting-count" class="badge badge-warning font-bold">0</span>
-            </div>
-            <div id="waiting-players" class="grid grid-cols-1 gap-2 md:grid-cols-2"></div>
-          </div>
-        </div>
+  <div class="card bg-base-300 w-full">
+    <div class="card-body grid grid-cols-2 gap-x-2">
+      <div class="grid gap-y-2">
+        <h2 class="card-title text-info text-xl font-black">藍隊</h2>
+        <div id="team-a-players"></div>
       </div>
 
-      <aside
-        id="host-setup-panel"
-        class="card bg-base-300 border-primary/10 hidden border shadow-xl">
-        <div class="card-body gap-5 p-5">
-          <div>
-            <h2 class="card-title text-primary text-lg font-black">主持設定</h2>
-            <p id="host-save-status" class="text-neutral-content/50 min-h-[1.25rem] text-xs"></p>
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-neutral-content/70 text-xs font-bold"
-              >題庫（每行一題，最多 200 題）</label
-            >
-            <textarea
-              id="questions-input"
-              class="textarea textarea-primary min-h-32 w-full font-medium"
-              maxlength="13000"
-              placeholder="請輸入題目，每行一題"></textarea>
-            <button id="save-questions-btn" class="btn btn-primary btn-sm w-full">儲存題庫</button>
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-neutral-content/70 text-xs font-bold">下一回合題目</label>
-            <input
-              id="topic-input"
-              class="input input-bordered input-sm w-full"
-              maxlength="60"
-              placeholder="指定下一題"
-            />
-            <div class="grid grid-cols-2 gap-2">
-              <button id="set-topic-btn" class="btn btn-secondary btn-sm">指定題目</button>
-              <button id="random-topic-btn" class="btn btn-outline btn-secondary btn-sm"
-                >題庫隨機</button
-              >
-            </div>
-            <p id="next-topic-label" class="text-neutral-content/60 min-h-[1.25rem] text-xs"></p>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <label class="form-control">
-              <span class="label-text text-xs font-bold">開場秒數</span>
-              <input
-                id="rule-intro"
-                type="number"
-                min="3"
-                max="300"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-xs font-bold">每棒秒數</span>
-              <input
-                id="rule-turn"
-                type="number"
-                min="3"
-                max="300"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-xs font-bold">結果秒數</span>
-              <input
-                id="rule-result"
-                type="number"
-                min="3"
-                max="300"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-xs font-bold">棒次數</span>
-              <input
-                id="rule-seats"
-                type="number"
-                min="1"
-                max="6"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control col-span-2">
-              <span class="label-text text-xs font-bold">勝場所需局數</span>
-              <input
-                id="rule-wins"
-                type="number"
-                min="1"
-                max="10"
-                class="input input-bordered input-sm"
-              />
-            </label>
-          </div>
-          <button id="save-rules-btn" class="btn btn-accent btn-sm w-full">套用規則</button>
-        </div>
-      </aside>
+      <div class="grid gap-y-2">
+        <h2 class="card-title text-secondary text-xl font-black">紅隊</h2>
+        <div id="team-b-players"></div>
+      </div>
     </div>
+  </div>
 
-    <div class="card bg-base-200 border-primary/5 border p-4 text-center text-sm font-medium">
-      <p id="lobby-status-text" class="text-neutral-content/70">正在與伺服器建立同步連線...</p>
+  <div class="card bg-base-300 w-full">
+    <div class="card-body">
+      <div class="flex items-center justify-between">
+        <h2 class="text-warning text-lg font-bold">等待主持人分隊</h2>
+        <span id="waiting-count" class="badge badge-warning font-bold">0</span>
+      </div>
+      <div id="waiting-players" class="grid grid-cols-2 gap-2"></div>
+    </div>
+  </div>
+
+  <div id="host-setup-panel" class="card bg-base-300 border-primary/10 hidden border shadow-xl">
+    <div class="card-body gap-y-2">
+      <h2 class="card-title text-primary text-lg font-black">主持設定</h2>
+      <p id="host-save-status" class="text-neutral-content/50 text-xs"></p>
+
+      <div class="grid gap-y-1">
+        <label class="text-xs font-bold">自訂題庫</label>
+        <textarea
+          id="questions-input"
+          class="textarea w-full font-medium"
+          placeholder="請輸入題目（每行一題，最多 200 題）"></textarea>
+        <button id="save-questions-btn" class="btn btn-primary btn-sm w-full">儲存題庫</button>
+      </div>
+
+      <div class="divider my-0"></div>
+
+      <div class="grid gap-y-1">
+        <label class="text-xs font-bold">下一回合題目</label>
+        <input id="topic-input" class="input input-sm w-full" placeholder="指定下一題" />
+        <div class="grid grid-cols-2 gap-x-2">
+          <button id="set-topic-btn" class="btn btn-secondary btn-sm">指定題目</button>
+          <button id="random-topic-btn" class="btn btn-outline btn-secondary btn-sm"
+            >題庫隨機</button
+          >
+        </div>
+        <p id="next-topic-label" class="text-neutral-content/60 min-h-5 text-xs"></p>
+      </div>
+
+      <div class="divider my-0"></div>
+
+      <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+        <label class="">
+          <span class="label-text text-xs font-bold">開場秒數</span>
+          <input
+            id="rule-intro"
+            type="number"
+            min="3"
+            max="300"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <label class="">
+          <span class="label-text text-xs font-bold">每棒秒數</span>
+          <input
+            id="rule-turn"
+            type="number"
+            min="3"
+            max="300"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <label class="">
+          <span class="label-text text-xs font-bold">結果秒數</span>
+          <input
+            id="rule-result"
+            type="number"
+            min="3"
+            max="300"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <label class="">
+          <span class="label-text text-xs font-bold">棒次數</span>
+          <input
+            id="rule-seats"
+            type="number"
+            min="1"
+            max="6"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <label class="">
+          <span class="label-text text-xs font-bold">勝場所需局數</span>
+          <input
+            id="rule-wins"
+            type="number"
+            min="1"
+            max="10"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <button id="save-rules-btn" class="btn btn-accent btn-sm mt-auto w-full">套用規則</button>
+      </div>
+      <div class="divider my-0"></div>
+      <button id="start-game-btn" class="btn btn-success btn-md hidden">
+        <PlayIcon class="size-5" />開始比賽
+      </button>
     </div>
   </div>
 </Layout>
@@ -206,7 +173,7 @@ import PlayIcon from "~icons/lucide/play"
 
   if (!role) window.location.href = "/"
   if (roomIdDisplay)
-    roomIdDisplay.textContent = `ROOM: ${roomId} | Role: ${role ? role.toUpperCase() : ""}`
+    roomIdDisplay.textContent = `ID: ${roomId} Role: ${role ? role.toUpperCase() : ""}`
   if (role === "host") {
     startGameBtn?.classList.remove("hidden")
     hostSetupPanel?.classList.remove("hidden")
@@ -236,9 +203,7 @@ import PlayIcon from "~icons/lucide/play"
         }
         if (role === "observer") socket.emit("observer:subscribe", {}, () => {})
         lobbyStatusText.textContent =
-          role === "host"
-            ? "您是主持人，請完成分隊與題目設定。"
-            : "觀戰大螢幕模式中，等待主持人開始比賽..."
+          role === "host" ? "您是主持人，請完成分隊與題目設定。" : "觀戰中，等待主持人開始比賽..."
       })
     }
   })
@@ -274,19 +239,19 @@ import PlayIcon from "~icons/lucide/play"
         ? { border: "border-info/20", text: "text-info" }
         : { border: "border-secondary/20", text: "text-secondary" }
     row.className = `flex items-center justify-between rounded-xl border ${colorClasses.border} bg-base-200 p-3`
-    const name = player ? `${player.name}${isMine ? " (你)" : ""}` : "尚未指派裝置"
+    const name = player ? `${player.name}${isMine ? "（你）" : ""}` : "尚未指派裝置"
     const status = player
       ? player.connected
-        ? '<span class="badge badge-success badge-xs py-1 px-1.5 font-bold text-[9px]">ON</span>'
-        : '<span class="badge badge-error badge-xs py-1 px-1.5 font-bold text-[9px]">OFF</span>'
+        ? '<span class="badge badge-success badge-xs font-bold">ON</span>'
+        : '<span class="badge badge-error badge-xs font-bold">OFF</span>'
       : ""
     const hostControls =
       role === "host" && player
-        ? `<button class="btn btn-ghost btn-xs text-warning" data-assign="" data-player-id="${player.playerId}">移回等待區</button>`
+        ? `<button class="btn btn-ghost btn-xs btn-warning" data-assign="" data-player-id="${player.playerId}">移出隊伍</button>`
         : ""
     row.innerHTML = `
-      <div class="min-w-0">
-        <div class="${colorClasses.text} text-xs font-black">Team ${teamId} 裝置</div>
+      <div class="">
+        <div class="${colorClasses.text} text-xs font-black">Team ${teamId}</div>
         <div class="truncate text-base font-extrabold">${escapeHtml(name)}</div>
       </div>
       <div class="flex items-center gap-2">${status}${hostControls}</div>

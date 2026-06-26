@@ -9,377 +9,348 @@ import ZapIcon from "~icons/lucide/zap"
 ---
 
 <Layout>
-  <div class="flex w-full max-w-5xl flex-col gap-y-6 px-2 md:px-0">
-    <!-- Top Bar: Shared info across phases -->
-    <div
-      class="navbar bg-base-300 border-primary/10 flex-wrap justify-between gap-2 rounded-2xl border px-6 shadow-xl">
-      <div class="flex items-center gap-x-3">
-        <span class="badge badge-primary font-black" id="round-num-badge">Round -</span>
-        <h1 class="text-neutral-content text-lg font-bold" id="room-info">SITCON 接龍戰局</h1>
-      </div>
-
-      <!-- Match Scores -->
-      <div class="flex items-center gap-x-4">
-        <div class="flex items-center gap-x-2">
-          <span class="text-info text-sm font-black">Team A (藍)</span>
-          <div class="join">
-            <span id="match-score-a" class="btn btn-xs btn-info no-animation font-mono font-bold"
-              >0</span
-            >
-            <span class="btn btn-xs btn-disabled no-animation font-mono">:</span>
-            <span
-              id="match-score-b"
-              class="btn btn-xs btn-secondary no-animation font-mono font-bold">0</span
-            >
-          </div>
-          <span class="text-secondary text-sm font-black">Team B (橘)</span>
+  <!-- Top Bar: Shared info across phases -->
+  <div class="card bg-base-300 w-full">
+    <div class="card-body flex-row items-center justify-between">
+      <span class="badge badge-primary font-bold" id="round-num-badge">Round -</span>
+      <h1 class="text-neutral-content text-lg font-bold" id="room-info">AI 謎題接龍</h1>
+      <!-- 兩隊分數 -->
+      <div class="flex items-center gap-x-2">
+        <span class="text-info text-sm font-black">藍隊</span>
+        <div class="join">
+          <span id="match-score-a" class="btn btn-xs btn-info font-mono font-bold">0</span>
+          <span class="btn btn-xs btn-disabled font-mono">:</span>
+          <span id="match-score-b" class="btn btn-xs btn-secondary font-mono font-bold">0</span>
         </div>
+        <span class="text-secondary text-sm font-bold">紅隊</span>
+      </div>
+      <!--  -->
+    </div>
+  </div>
+
+  <div id="host-live-setup-panel" class="card bg-base-300 hidden">
+    <div class="card-body gap-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="card-title text-primary text-base font-black">主持即時設定</h2>
+        <p id="host-live-status" class="text-neutral-content/50 min-h-5 text-xs"></p>
       </div>
 
-      <!-- Host Controls Panel (Floating/Integrated inside top bar if Host) -->
-      <div id="host-actions-panel" class="flex hidden items-center gap-x-2">
-        <span
-          class="text-warning border-warning/30 bg-warning/5 rounded border px-2 py-1 text-xs font-bold"
-          >HOST</span
-        >
+      <div class="flex items-center gap-x-2">
         <button id="host-pause-btn" class="btn btn-xs btn-warning">
-          <PauseIcon class="mr-0.5 h-3.5 w-3.5" /> 暫停
+          <PauseIcon class="size-4" />暫停
         </button>
         <button id="host-resume-btn" class="btn btn-xs btn-success hidden">
-          <PlayIcon class="mr-0.5 h-3.5 w-3.5" /> 恢復
+          <PlayIcon class="size-4" />恢復
         </button>
         <button id="host-force-judge-btn" class="btn btn-xs btn-error">
-          <ZapIcon class="mr-0.5 h-3.5 w-3.5" /> 強制評審
+          <ZapIcon class="size-4" />強制評審
         </button>
       </div>
-    </div>
 
-    <div
-      id="host-live-setup-panel"
-      class="card bg-base-300 border-primary/10 hidden border shadow-xl">
-      <div class="card-body gap-4 p-5">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="card-title text-primary text-base font-black">主持即時設定</h2>
-          <p id="host-live-status" class="text-neutral-content/50 min-h-[1.25rem] text-xs"></p>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr_1.3fr]">
-          <div class="space-y-2">
-            <label class="text-neutral-content/70 text-xs font-bold">題庫</label>
-            <textarea
-              id="live-questions-input"
-              class="textarea textarea-primary min-h-24 w-full text-sm"
-              placeholder="每行一題"></textarea>
-            <button id="live-save-questions-btn" class="btn btn-primary btn-xs w-full"
-              >儲存題庫</button
-            >
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-neutral-content/70 text-xs font-bold">下一回合題目</label>
-            <input
-              id="live-topic-input"
-              class="input input-bordered input-sm w-full"
-              maxlength="60"
-              placeholder="指定下一題"
-            />
-            <div class="grid grid-cols-2 gap-2">
-              <button id="live-set-topic-btn" class="btn btn-secondary btn-xs">指定</button>
-              <button id="live-random-topic-btn" class="btn btn-outline btn-secondary btn-xs"
-                >隨機</button
-              >
-            </div>
-            <p id="live-next-topic-label" class="text-neutral-content/60 min-h-[1.25rem] text-xs"
-            ></p>
-          </div>
-
-          <div class="grid grid-cols-5 gap-2">
-            <label class="form-control">
-              <span class="label-text text-[10px] font-bold">開場秒</span>
-              <input
-                id="live-rule-intro"
-                type="number"
-                min="3"
-                max="300"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-[10px] font-bold">每棒秒</span>
-              <input
-                id="live-rule-turn"
-                type="number"
-                min="3"
-                max="300"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-[10px] font-bold">結果秒</span>
-              <input
-                id="live-rule-result"
-                type="number"
-                min="3"
-                max="300"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-[10px] font-bold">棒次</span>
-              <input
-                id="live-rule-seats"
-                type="number"
-                min="1"
-                max="6"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-[10px] font-bold">勝場</span>
-              <input
-                id="live-rule-wins"
-                type="number"
-                min="1"
-                max="10"
-                class="input input-bordered input-sm"
-              />
-            </label>
-            <button id="live-save-rules-btn" class="btn btn-accent btn-xs col-span-5"
-              >套用規則</button
-            >
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ================= PHASE 1: ROUND_INTRO ================= -->
-    <div
-      id="phase-intro"
-      class="card bg-base-300 border-primary/20 flex hidden flex-col items-center gap-y-6 border p-8 text-center shadow-2xl">
-      <div class="text-primary animate-bounce text-5xl font-black tracking-widest"
-        >第 <span id="intro-round-num">-</span> 回合即將開始</div
-      >
-      <div class="divider mx-auto my-0 max-w-md"></div>
-      <p class="text-neutral-content/70 text-lg">AI 命題官即將揭曉本次戰局主題：</p>
-      <div class="bg-base-100 border-primary/15 max-w-xl rounded-2xl border p-6 shadow-inner">
-        <h2 id="intro-topic" class="text-secondary text-2xl font-extrabold tracking-wide"
-          >AI 出題生成中...</h2
-        >
+      <div class="grid gap-y-1">
+        <label class="text-neutral-content/70 text-xs font-bold">題庫</label>
+        <textarea
+          id="live-questions-input"
+          class="textarea w-full text-sm"
+          placeholder="每行一題"></textarea>
+        <button id="live-save-questions-btn" class="btn btn-primary btn-xs w-full">儲存題庫</button>
       </div>
 
-      <!-- Radial Countdown -->
-      <div class="mt-4 flex flex-col items-center gap-y-2">
-        <div
-          id="intro-radial"
-          class="radial-progress bg-primary/10 text-primary border-primary/20 border-4 font-mono text-3xl font-black shadow-lg"
-          style="--value:100; --size:7rem; --thickness: 6px;"
-          role="progressbar">
-          30s
+      <div class="grid gap-y-1">
+        <label class="text-neutral-content/70 text-xs font-bold">指定下一回合題目</label>
+        <input
+          id="live-topic-input"
+          class="input input-bordered input-sm w-full"
+          maxlength="60"
+          placeholder="請輸入題目"
+        />
+        <div class="grid grid-cols-2 gap-2">
+          <button id="live-set-topic-btn" class="btn btn-primary btn-xs">指定</button>
+          <button id="live-random-topic-btn" class="btn btn-outline btn-primary btn-xs"
+            >隨機</button
+          >
         </div>
-        <span class="text-neutral-content/50 text-xs font-bold">倒數結束後自動開始接龍</span>
-      </div>
-    </div>
-
-    <!-- ================= PHASE 2: CHAINING (The main gameplay) ================= -->
-    <div id="phase-chaining" class="flex hidden flex-col gap-y-6">
-      <!-- Topic Header -->
-      <div
-        class="card bg-base-300 border-primary/15 flex flex-col items-center border p-5 shadow-lg">
-        <span class="text-primary/70 mb-1 text-xs font-black tracking-wider uppercase"
-          >本次接龍主題</span
-        >
-        <h2
-          id="chaining-topic"
-          class="text-neutral-content text-center text-2xl font-extrabold tracking-wide"
-          >載入中...</h2
-        >
+        <p id="live-next-topic-label" class="text-neutral-content/60 min-h-5 text-xs"></p>
       </div>
 
-      <!-- Teams Parallel Chaining Lists -->
-      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <!-- Team A -->
-        <div class="card bg-base-300 border-info/10 border shadow-xl">
-          <div class="card-body p-5">
-            <div class="border-info/20 mb-4 flex items-center justify-between border-b pb-2">
-              <span class="text-info text-lg font-extrabold">Team A (藍色小隊)</span>
-              <div
-                id="timer-team-a"
-                class="badge badge-info hidden animate-pulse py-2.5 font-mono font-bold">--s</div
-              >
-            </div>
-            <div id="chain-list-a" class="space-y-2">
-              <!-- Chaining slots -->
-            </div>
-            <!-- Host skip btn A -->
-            <button id="skip-team-a-btn" class="btn btn-xs btn-outline btn-error mt-4 hidden w-full"
-              >主辦方：跳過此棒次 (Skip Team A)</button
-            >
-          </div>
-        </div>
-
-        <!-- Team B -->
-        <div class="card bg-base-300 border-secondary/10 border shadow-xl">
-          <div class="card-body p-5">
-            <div class="border-secondary/20 mb-4 flex items-center justify-between border-b pb-2">
-              <span class="text-secondary text-lg font-extrabold">Team B (橘色小隊)</span>
-              <div
-                id="timer-team-b"
-                class="badge badge-secondary hidden animate-pulse py-2.5 font-mono font-bold"
-                >--s</div
-              >
-            </div>
-            <div id="chain-list-b" class="space-y-2">
-              <!-- Chaining slots -->
-            </div>
-            <!-- Host skip btn B -->
-            <button id="skip-team-b-btn" class="btn btn-xs btn-outline btn-error mt-4 hidden w-full"
-              >主辦方：跳過此棒次 (Skip Team B)</button
-            >
-          </div>
-        </div>
-      </div>
-
-      <!-- Submission Box (Only active for current player's turn) -->
-      <div
-        id="submit-panel"
-        class="card bg-base-300 border-primary/20 flex flex-col items-center gap-y-4 border p-6 shadow-xl">
-        <div
-          id="submit-status-banner"
-          class="text-neutral-content flex items-center gap-x-2 text-base font-bold">
-          <HourglassIcon class="text-primary h-5 w-5 animate-spin" />
-          <span id="submit-status-text">等待您的棒次作答中...</span>
-        </div>
-
-        <!-- Submit form (hidden by default, enabled dynamically) -->
-        <div id="submit-action-row" class="join hidden w-full max-w-md">
+      <div class="grid grid-cols-5 gap-x-2 gap-y-1">
+        <label class="form-control">
+          <span class="label-text text-[10px] font-bold">開場秒</span>
           <input
-            id="answer-input"
-            type="text"
-            required
-            maxlength="5"
-            placeholder="請輸入剛好 5 個字"
-            class="input input-primary join-item input-lg w-full text-center text-2xl font-extrabold tracking-widest uppercase"
+            id="live-rule-intro"
+            type="number"
+            min="3"
+            max="300"
+            class="input input-bordered input-sm"
           />
-          <button id="submit-btn" class="btn join-item btn-primary btn-lg px-8 font-black">
-            送出答案
-          </button>
-        </div>
-        <span id="submit-error" class="text-error min-h-[1.2rem] text-xs font-medium"></span>
+        </label>
+        <label class="form-control">
+          <span class="label-text text-[10px] font-bold">每棒秒</span>
+          <input
+            id="live-rule-turn"
+            type="number"
+            min="3"
+            max="300"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <label class="form-control">
+          <span class="label-text text-[10px] font-bold">結果秒</span>
+          <input
+            id="live-rule-result"
+            type="number"
+            min="3"
+            max="300"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <label class="form-control">
+          <span class="label-text text-[10px] font-bold">棒次</span>
+          <input
+            id="live-rule-seats"
+            type="number"
+            min="1"
+            max="6"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <label class="form-control">
+          <span class="label-text text-[10px] font-bold">勝場</span>
+          <input
+            id="live-rule-wins"
+            type="number"
+            min="1"
+            max="10"
+            class="input input-bordered input-sm"
+          />
+        </label>
+        <button id="live-save-rules-btn" class="btn btn-accent btn-xs col-span-5">套用規則</button>
       </div>
     </div>
+  </div>
 
-    <!-- ================= PHASE 3: JUDGING ================= -->
-    <div
-      id="phase-judging"
-      class="card bg-base-300 border-primary/20 flex hidden flex-col items-center gap-y-6 border p-12 text-center shadow-2xl">
-      <RefreshCwIcon class="text-primary h-16 w-16 animate-spin" />
-      <h2 class="text-primary text-3xl font-black tracking-widest">⚖️ 公正 AI 評審分析中</h2>
-      <p class="text-neutral-content/70 max-w-lg leading-relaxed">
-        評審團正依據 <span class="text-secondary font-bold">邏輯性 (25%)</span>、<span
-          class="text-secondary font-bold">符合度 (30%)</span
-        >、<span class="text-secondary font-bold">完整性 (25%)</span> 及 <span
-          class="text-secondary font-bold">創意性 (20%)</span
-        > 進行精準打分，並生成繁體中文評語。請耐心等候...
-      </p>
+  <!-- ================= PHASE 1: ROUND_INTRO ================= -->
+  <div
+    id="phase-intro"
+    class="card bg-base-300 border-primary/20 flex hidden flex-col items-center gap-y-6 border p-8 text-center shadow-2xl">
+    <div class="text-primary animate-bounce text-5xl font-black tracking-widest"
+      >第 <span id="intro-round-num">-</span> 回合即將開始</div
+    >
+    <div class="divider mx-auto my-0 max-w-md"></div>
+    <p class="text-neutral-content/70 text-lg">AI 命題官即將揭曉本次戰局主題：</p>
+    <div class="bg-base-100 border-primary/15 max-w-xl rounded-2xl border p-6 shadow-inner">
+      <h2 id="intro-topic" class="text-secondary text-2xl font-extrabold tracking-wide"
+        >AI 出題生成中...</h2
+      >
     </div>
 
-    <!-- ================= PHASE 4: ROUND_RESULT ================= -->
-    <div id="phase-result" class="flex hidden flex-col gap-y-6">
-      <!-- Winner Banner -->
+    <!-- Radial Countdown -->
+    <div class="mt-4 flex flex-col items-center gap-y-2">
       <div
-        class="card bg-base-300 border-success/20 flex flex-col items-center gap-y-2 border p-6 text-center shadow-xl">
-        <AwardIcon class="text-warning h-12 w-12 animate-bounce" />
-        <span class="text-warning text-xs font-black tracking-widest uppercase">單回合評審結果</span
-        >
-        <h2 class="text-4xl font-extrabold tracking-wide" id="result-winner-text"
-          >藍色小隊 (Team A) 獲勝！</h2
-        >
+        id="intro-radial"
+        class="radial-progress bg-primary/10 text-primary border-primary/20 border-4 font-mono text-3xl font-black shadow-lg"
+        style="--value:100; --size:7rem; --thickness: 6px;"
+        role="progressbar">
+        30s
       </div>
+      <span class="text-neutral-content/50 text-xs font-bold">倒數結束後自動開始接龍</span>
+    </div>
+  </div>
 
-      <!-- Scores and Criteria Details -->
-      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <!-- Team A Breakdown -->
-        <div class="card bg-base-300 border-info/20 border shadow-xl">
-          <div class="card-body p-5">
-            <div class="border-info/10 mb-4 flex items-center justify-between border-b pb-2">
-              <span class="text-info text-lg font-black">藍色小隊 — Team A</span>
-              <span id="result-score-a" class="text-info font-mono text-3xl font-black">0 分</span>
-            </div>
+  <!-- ================= PHASE 2: CHAINING (The main gameplay) ================= -->
+  <div id="phase-chaining" class="flex hidden flex-col gap-y-6">
+    <!-- Topic Header -->
+    <div class="card bg-base-300 border-primary/15 flex flex-col items-center border p-5 shadow-lg">
+      <span class="text-primary/70 mb-1 text-xs font-black tracking-wider uppercase"
+        >本次接龍主題</span
+      >
+      <h2
+        id="chaining-topic"
+        class="text-neutral-content text-center text-2xl font-extrabold tracking-wide">載入中...</h2
+      >
+    </div>
 
-            <!-- Progress sliders for criteria -->
-            <div class="space-y-3" id="criteria-breakdown-a">
-              <!-- Dynamically populated -->
-            </div>
+    <!-- Teams Parallel Chaining Lists -->
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <!-- Team A -->
+      <div class="card bg-base-300 border-info/10 border shadow-xl">
+        <div class="card-body p-5">
+          <div class="border-info/20 mb-4 flex items-center justify-between border-b pb-2">
+            <span class="text-info text-lg font-extrabold">Team A (藍色小隊)</span>
+            <div
+              id="timer-team-a"
+              class="badge badge-info hidden animate-pulse py-2.5 font-mono font-bold">--s</div
+            >
           </div>
-        </div>
-
-        <!-- Team B Breakdown -->
-        <div class="card bg-base-300 border-secondary/20 border shadow-xl">
-          <div class="card-body p-5">
-            <div class="border-secondary/10 mb-4 flex items-center justify-between border-b pb-2">
-              <span class="text-secondary text-lg font-black">橘色小隊 — Team B</span>
-              <span id="result-score-b" class="text-secondary font-mono text-3xl font-black"
-                >0 分</span
-              >
-            </div>
-
-            <!-- Progress sliders for criteria -->
-            <div class="space-y-3" id="criteria-breakdown-b">
-              <!-- Dynamically populated -->
-            </div>
+          <div id="chain-list-a" class="space-y-2">
+            <!-- Chaining slots -->
           </div>
+          <!-- Host skip btn A -->
+          <button id="skip-team-a-btn" class="btn btn-xs btn-outline btn-error mt-4 hidden w-full"
+            >主辦方：跳過此棒次 (Skip Team A)</button
+          >
         </div>
       </div>
 
-      <!-- AI Judge Reason bubble -->
-      <div class="card bg-base-300 border-primary/10 border p-6 shadow-xl">
-        <h3 class="text-primary mb-2 text-sm font-bold tracking-wider uppercase"
-          >AI 評審講評與評估緣由</h3
-        >
-        <blockquote
-          id="result-reason"
-          class="bg-base-100 border-primary/5 text-neutral-content/90 rounded-2xl border p-5 text-lg leading-relaxed font-medium italic">
-          「載入講評中...」
-        </blockquote>
-        <span
-          id="degraded-badge"
-          class="badge badge-warning mt-2 hidden self-start text-[10px] font-bold"
-          >⚡ 偵測到 Gemini 連線異常：已啟用本地 AI 演算法完成容錯打分</span
-        >
-      </div>
-
-      <!-- Next Actions -->
-      <div class="flex justify-center gap-x-4">
-        <button
-          id="host-next-round-btn"
-          class="btn btn-success btn-lg shadow-success/15 hidden px-12 shadow-lg">
-          <PlayIcon class="mr-1 h-6 w-6" />
-          <span>進入下一回合</span>
-        </button>
-        <div id="player-waiting-banner" class="alert alert-info max-w-md justify-center font-bold">
-          <HourglassIcon class="h-5 w-5 animate-spin" />
-          <span>等待主持人開啟下一回合...</span>
+      <!-- Team B -->
+      <div class="card bg-base-300 border-secondary/10 border shadow-xl">
+        <div class="card-body p-5">
+          <div class="border-secondary/20 mb-4 flex items-center justify-between border-b pb-2">
+            <span class="text-secondary text-lg font-extrabold">Team B (橘色小隊)</span>
+            <div
+              id="timer-team-b"
+              class="badge badge-secondary hidden animate-pulse py-2.5 font-mono font-bold">--s</div
+            >
+          </div>
+          <div id="chain-list-b" class="space-y-2">
+            <!-- Chaining slots -->
+          </div>
+          <!-- Host skip btn B -->
+          <button id="skip-team-b-btn" class="btn btn-xs btn-outline btn-error mt-4 hidden w-full"
+            >主辦方：跳過此棒次 (Skip Team B)</button
+          >
         </div>
       </div>
     </div>
 
-    <!-- ================= PHASE 5: MATCH_OVER ================= -->
+    <!-- Submission Box (Only active for current player's turn) -->
     <div
-      id="phase-matchover"
-      class="card bg-base-300 border-warning/30 flex hidden flex-col items-center gap-y-6 border p-10 text-center shadow-2xl">
-      <AwardIcon class="text-warning h-20 w-20 animate-pulse" />
-      <h2
-        class="text-warning text-5xl font-black tracking-widest drop-shadow-lg"
-        id="matchover-winner-text">Team A 取得最終勝利！</h2
-      >
-      <p class="text-neutral-content/70 text-lg">經過多回合的智慧謎語接龍激烈交鋒，恭喜獲勝組別！</p
-      >
-
-      <div class="divider my-0 max-w-sm"></div>
-
-      <div class="flex gap-x-4">
-        <button id="back-to-lobby-btn" class="btn btn-primary btn-lg px-10">回到大廳</button>
+      id="submit-panel"
+      class="card bg-base-300 border-primary/20 flex flex-col items-center gap-y-4 border p-6 shadow-xl">
+      <div
+        id="submit-status-banner"
+        class="text-neutral-content flex items-center gap-x-2 text-base font-bold">
+        <HourglassIcon class="text-primary h-5 w-5 animate-spin" />
+        <span id="submit-status-text">等待您的棒次作答中...</span>
       </div>
+
+      <!-- Submit form (hidden by default, enabled dynamically) -->
+      <div id="submit-action-row" class="join hidden w-full max-w-md">
+        <input
+          id="answer-input"
+          type="text"
+          required
+          maxlength="5"
+          placeholder="請輸入剛好 5 個字"
+          class="input input-primary join-item input-lg w-full text-center text-2xl font-extrabold tracking-widest uppercase"
+        />
+        <button id="submit-btn" class="btn join-item btn-primary btn-lg px-8 font-black">
+          送出答案
+        </button>
+      </div>
+      <span id="submit-error" class="text-error min-h-[1.2rem] text-xs font-medium"></span>
+    </div>
+  </div>
+
+  <!-- ================= PHASE 3: JUDGING ================= -->
+  <div
+    id="phase-judging"
+    class="card bg-base-300 border-primary/20 flex hidden flex-col items-center gap-y-6 border p-12 text-center shadow-2xl">
+    <RefreshCwIcon class="text-primary h-16 w-16 animate-spin" />
+    <h2 class="text-primary text-3xl font-black tracking-widest">⚖️ 公正 AI 評審分析中</h2>
+    <p class="text-neutral-content/70 max-w-lg leading-relaxed">
+      評審團正依據 <span class="text-secondary font-bold">邏輯性 (25%)</span>、<span
+        class="text-secondary font-bold">符合度 (30%)</span
+      >、<span class="text-secondary font-bold">完整性 (25%)</span> 及 <span
+        class="text-secondary font-bold">創意性 (20%)</span
+      > 進行精準打分，並生成繁體中文評語。請耐心等候...
+    </p>
+  </div>
+
+  <!-- ================= PHASE 4: ROUND_RESULT ================= -->
+  <div id="phase-result" class="flex hidden flex-col gap-y-6">
+    <!-- Winner Banner -->
+    <div
+      class="card bg-base-300 border-success/20 flex flex-col items-center gap-y-2 border p-6 text-center shadow-xl">
+      <AwardIcon class="text-warning h-12 w-12 animate-bounce" />
+      <span class="text-warning text-xs font-black tracking-widest uppercase">單回合評審結果</span>
+      <h2 class="text-4xl font-extrabold tracking-wide" id="result-winner-text"
+        >藍色小隊 (Team A) 獲勝！</h2
+      >
+    </div>
+
+    <!-- Scores and Criteria Details -->
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <!-- Team A Breakdown -->
+      <div class="card bg-base-300 border-info/20 border shadow-xl">
+        <div class="card-body p-5">
+          <div class="border-info/10 mb-4 flex items-center justify-between border-b pb-2">
+            <span class="text-info text-lg font-black">藍色小隊 — Team A</span>
+            <span id="result-score-a" class="text-info font-mono text-3xl font-black">0 分</span>
+          </div>
+
+          <!-- Progress sliders for criteria -->
+          <div class="space-y-3" id="criteria-breakdown-a">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Team B Breakdown -->
+      <div class="card bg-base-300 border-secondary/20 border shadow-xl">
+        <div class="card-body p-5">
+          <div class="border-secondary/10 mb-4 flex items-center justify-between border-b pb-2">
+            <span class="text-secondary text-lg font-black">橘色小隊 — Team B</span>
+            <span id="result-score-b" class="text-secondary font-mono text-3xl font-black"
+              >0 分</span
+            >
+          </div>
+
+          <!-- Progress sliders for criteria -->
+          <div class="space-y-3" id="criteria-breakdown-b">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Judge Reason bubble -->
+    <div class="card bg-base-300 border-primary/10 border p-6 shadow-xl">
+      <h3 class="text-primary mb-2 text-sm font-bold tracking-wider uppercase"
+        >AI 評審講評與評估緣由</h3
+      >
+      <blockquote
+        id="result-reason"
+        class="bg-base-100 border-primary/5 text-neutral-content/90 rounded-2xl border p-5 text-lg leading-relaxed font-medium italic">
+        「載入講評中...」
+      </blockquote>
+      <span
+        id="degraded-badge"
+        class="badge badge-warning mt-2 hidden self-start text-[10px] font-bold"
+        >⚡ 偵測到 Gemini 連線異常：已啟用本地 AI 演算法完成容錯打分</span
+      >
+    </div>
+
+    <!-- Next Actions -->
+    <div class="flex justify-center gap-x-4">
+      <button
+        id="host-next-round-btn"
+        class="btn btn-success btn-lg shadow-success/15 hidden px-12 shadow-lg">
+        <PlayIcon class="mr-1 h-6 w-6" />
+        <span>進入下一回合</span>
+      </button>
+      <div id="player-waiting-banner" class="alert alert-info max-w-md justify-center font-bold">
+        <HourglassIcon class="h-5 w-5 animate-spin" />
+        <span>等待主持人開啟下一回合...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PHASE 5: MATCH_OVER ================= -->
+  <div
+    id="phase-matchover"
+    class="card bg-base-300 border-warning/30 flex hidden flex-col items-center gap-y-6 border p-10 text-center shadow-2xl">
+    <AwardIcon class="text-warning h-20 w-20 animate-pulse" />
+    <h2
+      class="text-warning text-5xl font-black tracking-widest drop-shadow-lg"
+      id="matchover-winner-text">Team A 取得最終勝利！</h2
+    >
+    <p class="text-neutral-content/70 text-lg">經過多回合的智慧謎語接龍激烈交鋒，恭喜獲勝組別！</p>
+
+    <div class="divider my-0 max-w-sm"></div>
+
+    <div class="flex gap-x-4">
+      <button id="back-to-lobby-btn" class="btn btn-primary btn-lg px-10">回到大廳</button>
     </div>
   </div>
 </Layout>
@@ -393,14 +364,11 @@ import ZapIcon from "~icons/lucide/zap"
   const matchScoreA = document.getElementById("match-score-a") as HTMLSpanElement
   const matchScoreB = document.getElementById("match-score-b") as HTMLSpanElement
 
-  // Host Actions Panel
-  const hostActionsPanel = document.getElementById("host-actions-panel") as HTMLDivElement
+  // Host live setup
+  const hostLiveSetupPanel = document.getElementById("host-live-setup-panel") as HTMLElement
   const hostPauseBtn = document.getElementById("host-pause-btn") as HTMLButtonElement
   const hostResumeBtn = document.getElementById("host-resume-btn") as HTMLButtonElement
   const hostForceJudgeBtn = document.getElementById("host-force-judge-btn") as HTMLButtonElement
-
-  // Host live setup
-  const hostLiveSetupPanel = document.getElementById("host-live-setup-panel") as HTMLElement
   const hostLiveStatus = document.getElementById("host-live-status") as HTMLParagraphElement
   const liveQuestionsInput = document.getElementById("live-questions-input") as HTMLTextAreaElement
   const liveSaveQuestionsBtn = document.getElementById(
@@ -435,10 +403,6 @@ import ZapIcon from "~icons/lucide/zap"
     window.location.href = "/"
   }
 
-  if (roomInfo) {
-    roomInfo.textContent = `SITCON 接龍戰局 | 房號: ${roomId} | 角色: ${role?.toUpperCase() ?? ""}`
-  }
-
   // Connect to socket
   const socket = getSocket()
   if (!socket.connected) {
@@ -468,8 +432,7 @@ import ZapIcon from "~icons/lucide/zap"
   })
 
   // Host Action Panel Initialization
-  if (role === "host" && hostActionsPanel) {
-    hostActionsPanel.classList.remove("hidden")
+  if (role === "host" && hostLiveSetupPanel) {
     hostLiveSetupPanel?.classList.remove("hidden")
   }
 
