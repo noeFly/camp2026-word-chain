@@ -1,0 +1,105 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import ChevronRightIcon from "~icons/lucide/chevron-right"
+---
+
+<Layout>
+  <div class="card bg-base-300 w-full">
+    <div class="card-body gap-y-2">
+      <h1 class="text-primary text-center text-4xl font-bold tracking-widest">AI 謎題接龍</h1>
+      <div class="join">
+        <input
+          type="text"
+          id="history-id"
+          placeholder="請輸入對戰 ID"
+          class="join-item input w-full flex-1"
+        />
+        <button class="btn btn-primary join-item">
+          <ChevronRightIcon />
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-300 w-full">
+    <div class="card-body gap-y-2">
+      <span class="text-primary text-2xl font-bold">對戰結果</span>
+      <div class="grid gap-y-1">
+        <span class="text-lg font-bold">獲勝組別</span>
+        <span class="text-info">A 隊</span>
+      </div>
+      <div class="grid gap-y-1">
+        <span class="text-lg font-bold">兩隊分數</span>
+        <div class="flex items-center gap-x-2">
+          <span class="text-info font-bold">A 隊</span>
+          <div class="join">
+            <span class="btn-info btn btn-xs join-item">24</span>
+            <span class="btn-disabled btn btn-xs join-item">:</span>
+            <span class="btn-secondary btn btn-xs join-item">0</span>
+          </div>
+          <span class="text-secondary font-bold">B 隊</span>
+        </div>
+      </div>
+      <div class="grid gap-y-1">
+        <span class="text-lg font-bold">AI 點評</span>
+        <span>A 呃啊呃啊呃啊。B 叭叭叭叭叭叭。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-300 w-full">
+    <div class="card-body flex-row">
+      <div class="grid flex-1 gap-y-2">
+        <span class="text-info text-2xl font-bold">A 隊</span>
+        <div class="grid gap-y-1">
+          <span class="text-lg font-bold">最終答案</span>
+          <div class="flex flex-wrap gap-x-2 gap-y-1">
+            <span>第1棒答案</span>
+            <span>第2棒答案</span>
+            <span>第3棒答案</span>
+            <span>第4棒答案</span>
+            <span>第5棒答案</span>
+            <span>第6棒答案</span>
+          </div>
+        </div>
+        <div class="grid gap-y-1">
+          <span class="text-lg font-bold">AI 評分</span>
+          <span>邏輯性（25%）：10 分</span>
+          <progress class="progress progress-info" value="10" max="100"></progress>
+          <span>符合度（30%）：20 分</span>
+          <progress class="progress progress-info" value="20" max="100"></progress>
+          <span>完整性（25%）：30 分</span>
+          <progress class="progress progress-info" value="30" max="100"></progress>
+          <span>創意性（20%）：40 分</span>
+          <progress class="progress progress-info" value="40" max="100"></progress>
+        </div>
+      </div>
+      <div class="divider divider-horizontal m-0"></div>
+      <div class="grid flex-1 gap-y-2">
+        <span class="text-secondary text-2xl font-bold">B 隊</span>
+        <div class="grid gap-y-1">
+          <span class="text-lg font-bold">最終答案</span>
+          <div class="flex flex-wrap gap-x-2 gap-y-1">
+            <span>第1棒答案</span>
+            <span>第2棒答案</span>
+            <span>第3棒答案</span>
+            <span>第4棒答案</span>
+            <span>第5棒答案</span>
+            <span>第6棒答案</span>
+          </div>
+        </div>
+        <div class="grid gap-y-1">
+          <span class="text-lg font-bold">AI 評分</span>
+          <span>邏輯性（25%）：10 分</span>
+          <progress class="progress progress-secondary" value="10" max="100"></progress>
+          <span>符合度（30%）：20 分</span>
+          <progress class="progress progress-secondary" value="20" max="100"></progress>
+          <span>完整性（25%）：30 分</span>
+          <progress class="progress progress-secondary" value="30" max="100"></progress>
+          <span>創意性（20%）：40 分</span>
+          <progress class="progress progress-secondary" value="40" max="100"></progress>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
