@@ -9,8 +9,7 @@
     "dev": "astro dev",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
-    "preinstall": "npx only-allow pnpm && husky",
-    "prepare": "husky",
+    "preinstall": "npx only-allow pnpm",
     "preview": "astro preview"
   },
   "dependencies": {
@@ -19,7 +18,6 @@
     "animejs": "^4.3.6",
     "astro": "^6.1.5",
     "daisyui": "^5.5.23",
-    "husky": "^9.1.7",
     "socket.io-client": "^4.8.3",
     "tailwindcss": "^4.3.1"
   },
