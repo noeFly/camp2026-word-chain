@@ -584,6 +584,18 @@ import ZapIcon from "~icons/lucide/zap"
     syncTurnTimer("A", state.teams.A, timerTeamA, state.paused)
     syncTurnTimer("B", state.teams.B, timerTeamB, state.paused)
 
+    if (state.paused) {
+      answerInput.setAttribute("disabled", "true")
+      submitBtn.disabled = true
+      submitBtn.classList.remove("btn-primary")
+      submitBtn.classList.add("btn-disabled")
+    } else {
+      answerInput.removeAttribute("disabled")
+      submitBtn.disabled = false
+      submitBtn.classList.add("btn-primary")
+      submitBtn.classList.remove("btn-disabled")
+    }
+
     // Handle submission panel activation. Players should normally have chosen a team at login.
     const liveSession = getSession()
     if (role === "player" && liveSession) {
@@ -612,11 +624,11 @@ import ZapIcon from "~icons/lucide/zap"
         submitPanel?.classList.add("border-success/40", "bg-success/5")
         submitPanel?.classList.remove("border-primary/20")
 
-        if (answerInput) {
+        if (answerInput && !state.paused) {
           answerInput.disabled = false
           answerInput.focus()
         }
-        if (submitBtn) submitBtn.disabled = false
+        if (submitBtn && !state.paused) submitBtn.disabled = false
       } else {
         // Standby / Wait screen
         submitStatusBanner?.classList.remove("hidden")
