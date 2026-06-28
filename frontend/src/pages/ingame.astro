@@ -170,7 +170,7 @@ import ZapIcon from "~icons/lucide/zap"
     <!-- Teams Parallel Chaining Lists -->
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
       <!-- Team A -->
-      <div class="card bg-base-300 border-info/10 border shadow-xl">
+      <div id="team-a-answer" class="card bg-base-300 border-info/10 border shadow-xl">
         <div class="card-body p-5">
           <div class="border-info/20 mb-4 flex items-center justify-between border-b pb-2">
             <span class="text-info text-lg font-extrabold">Team A (藍色小隊)</span>
@@ -190,7 +190,7 @@ import ZapIcon from "~icons/lucide/zap"
       </div>
 
       <!-- Team B -->
-      <div class="card bg-base-300 border-secondary/10 border shadow-xl">
+      <div id="team-b-answer" class="card bg-base-300 border-secondary/10 border shadow-xl">
         <div class="card-body p-5">
           <div class="border-secondary/20 mb-4 flex items-center justify-between border-b pb-2">
             <span class="text-secondary text-lg font-extrabold">Team B (橘色小隊)</span>
@@ -554,6 +554,8 @@ import ZapIcon from "~icons/lucide/zap"
   const timerTeamB = document.getElementById("timer-team-b") as HTMLDivElement
   const skipTeamABtn = document.getElementById("skip-team-a-btn") as HTMLButtonElement
   const skipTeamBBtn = document.getElementById("skip-team-b-btn") as HTMLButtonElement
+  const answerDivA = document.getElementById("team-a-answer") as HTMLDivElement
+  const answerDivB = document.getElementById("team-b-answer") as HTMLDivElement
 
   // Submit block references
   const submitPanel = document.getElementById("submit-panel") as HTMLDivElement
@@ -595,6 +597,10 @@ import ZapIcon from "~icons/lucide/zap"
         submitStatusText.textContent = "尚未選擇隊伍，請回首頁重新登入。"
         return
       }
+
+      // 移除非自己隊伍的作答情況
+      if (myTeam === "A") answerDivB?.remove()
+      else answerDivA?.remove()
 
       const currentTeamState = state.teams[myTeam]
       const isMyTurn = !currentTeamState.done
