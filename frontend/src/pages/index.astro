@@ -21,7 +21,12 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
           </button>
         </div>
 
-        <input id="room-id-input" type="text" placeholder="房間編號（非必填）" class="input w-full input-sm" />
+        <input
+          id="room-id-input"
+          type="text"
+          placeholder="房間編號（非必填）"
+          class="input input-sm w-full"
+        />
 
         <span id="error-msg" class="text-error text-center"></span>
       </div>
@@ -42,7 +47,7 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
 
   const blueLoginBtn = document.getElementById("blue-login-btn") as HTMLButtonElement
   const redLoginBtn = document.getElementById("red-login-btn") as HTMLButtonElement
-  const roomIdInput = document.getElementById('room-id-input') as HTMLInputElement
+  const roomIdInput = document.getElementById("room-id-input") as HTMLInputElement
   const errorMsg = document.getElementById("error-msg") as HTMLSpanElement
   const hostLogin = document.getElementById("host-login") as HTMLAnchorElement
   const obsLogin = document.getElementById("obs-login") as HTMLAnchorElement
