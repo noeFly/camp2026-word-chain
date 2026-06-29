@@ -80,7 +80,7 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
       socket.connect()
     }
 
-    const roomId = roomIdInput.value ?? "sitcon-camp-2026" // 預設房間 ID
+    const roomId = roomIdInput.value !== "" ? roomIdInput.value : "sitcon-camp-2026" // 預設房間 ID
     let payload: any = { roomId, role }
 
     if (role === "player") {
