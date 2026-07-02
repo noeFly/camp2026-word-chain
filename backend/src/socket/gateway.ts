@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import type { Server, Socket } from 'socket.io';
 import { RoomManager } from '../game/manager.js';
+import { currentMatchup } from '../game/rules.js';
 import {
   assignTeamSchema,
   joinSchema,
+  playerIdSchema,
   rejoinSchema,
+  roomIdSchema,
+  setMatchConfigSchema,
+  setNextMatchupSchema,
   setQuestionsSchema,
   setRulesSchema,
   setTopicSchema,
@@ -21,6 +26,7 @@ interface SocketData {
   role?: Role;
   playerId?: string;
   team?: TeamId | null;
+  watchedRoomId?: string;
 }
 
 const teamRoom = (id: string, t: TeamId) => `${id}:t:${t}`;
@@ -49,6 +55,11 @@ export function registerGateway(io: Server): RoomManager {
         const player: Player = {
           playerId: randomUUID(),
           team: assigned,
+          groupNumber: assigned
+            ? assigned === 'A'
+              ? currentMatchup(eng.state)?.groupA ?? null
+              : currentMatchup(eng.state)?.groupB ?? null
+            : null,
           name: name?.trim() || '未命名裝置',
           connected: true,
           lastSeen: Date.now(),
@@ -72,6 +83,22 @@ export function registerGateway(io: Server): RoomManager {
       ack?.({ ok: true });
       eng.emitState(socket.id);
       eng.emitPresence(socket.id);
+    });
+
+    socket.on('room:watch', async (payload: unknown, ack?: Ack) => {
+      const parsed = roomIdSchema.safeParse(payload);
+      if (!parsed.success) return fail(ack, 'INVALID_PAYLOAD');
+      const roomId = parsed.data.roomId;
+      const eng = await manager.get(roomId);
+      if (!eng) return fail(ack, 'ROOM_NOT_FOUND');
+
+      if (data.watchedRoomId) {
+        socket.leave(obsRoom(data.watchedRoomId));
+      }
+      data.watchedRoomId = roomId;
+      socket.join(obsRoom(roomId));
+      ack?.({ ok: true });
+      eng.emitState(socket.id);
     });
 
     socket.on('room:rejoin', async (payload: unknown, ack?: Ack) => {
@@ -155,6 +182,22 @@ export function registerGateway(io: Server): RoomManager {
       ack?.({ ok: true });
     });
 
+    socket.on('host:force_end_game', async (_p: unknown, ack?: Ack) => {
+      const eng = await requireHost(manager, data);
+      if (!eng) return fail(ack, 'FORBIDDEN');
+      const ok = await eng.forceEndCurrentGame();
+      if (!ok) return fail(ack, 'WRONG_PHASE');
+      ack?.({ ok: true });
+    });
+
+    socket.on('host:end_game', async (_p: unknown, ack?: Ack) => {
+      const eng = await requireHost(manager, data);
+      if (!eng) return fail(ack, 'FORBIDDEN');
+      const ok = await eng.endGame();
+      if (!ok) return fail(ack, 'WRONG_PHASE');
+      ack?.({ ok: true });
+    });
+
     socket.on('host:assign_team', async (payload: unknown, ack?: Ack) => {
       const parsed = assignTeamSchema.safeParse(payload);
       if (!parsed.success) return fail(ack, 'INVALID_PAYLOAD');
@@ -165,12 +208,48 @@ export function registerGateway(io: Server): RoomManager {
       ack?.({ ok: true });
     });
 
+    socket.on('host:remove_player', async (payload: unknown, ack?: Ack) => {
+      const parsed = playerIdSchema.safeParse(payload);
+      if (!parsed.success) return fail(ack, 'INVALID_PAYLOAD');
+      const eng = await requireHost(manager, data);
+      if (!eng) return fail(ack, 'FORBIDDEN');
+      const ok = await eng.removePlayer(parsed.data.playerId);
+      if (!ok) return fail(ack, 'FORBIDDEN');
+      ack?.({ ok: true });
+    });
+
     socket.on('host:set_questions', async (payload: unknown, ack?: Ack) => {
       const parsed = setQuestionsSchema.safeParse(payload);
       if (!parsed.success) return fail(ack, 'INVALID_PAYLOAD');
       const eng = await requireHost(manager, data);
       if (!eng) return fail(ack, 'FORBIDDEN');
       await eng.setQuestions(parsed.data.questions);
+      ack?.({ ok: true });
+    });
+
+    socket.on('host:clear_history', async (_payload: unknown, ack?: Ack) => {
+      const eng = await requireHost(manager, data);
+      if (!eng) return fail(ack, 'FORBIDDEN');
+      await eng.clearHistory();
+      ack?.({ ok: true });
+    });
+
+    socket.on('host:set_match_config', async (payload: unknown, ack?: Ack) => {
+      const parsed = setMatchConfigSchema.safeParse(payload);
+      if (!parsed.success) return fail(ack, 'INVALID_PAYLOAD');
+      const eng = await requireHost(manager, data);
+      if (!eng) return fail(ack, 'FORBIDDEN');
+      await eng.setMatchConfig(parsed.data.matchMode, parsed.data.matchups);
+      ack?.({ ok: true });
+    });
+
+    socket.on('host:set_next_matchup', async (payload: unknown, ack?: Ack) => {
+      const parsed = setNextMatchupSchema.safeParse(payload);
+      if (!parsed.success) return fail(ack, 'INVALID_PAYLOAD');
+      const eng = await requireHost(manager, data);
+      if (!eng) return fail(ack, 'FORBIDDEN');
+      const ok = await eng.setNextMatchup(parsed.data);
+      if (!ok) return fail(ack, 'WRONG_PHASE');
       ack?.({ ok: true });
     });
 

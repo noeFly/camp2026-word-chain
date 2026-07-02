@@ -54,6 +54,11 @@ export async function loadPlayers(roomId: string): Promise<Player[]> {
   return Object.values(map).map((v) => JSON.parse(v) as Player);
 }
 
+export async function deletePlayer(roomId: string, playerId: string): Promise<void> {
+  await redis.hdel(playersKey(roomId), playerId);
+  await redis.expire(playersKey(roomId), ROOM_TTL_SECONDS);
+}
+
 // ---- event log (capped) ----
 export async function pushEvent(roomId: string, entry: EventLogEntry): Promise<void> {
   await redis
@@ -67,4 +72,8 @@ export async function pushEvent(roomId: string, entry: EventLogEntry): Promise<v
 export async function getEvents(roomId: string, limit = 50): Promise<EventLogEntry[]> {
   const raw = await redis.lrange(eventsKey(roomId), 0, limit - 1);
   return raw.map((v) => JSON.parse(v) as EventLogEntry);
+}
+
+export async function clearEvents(roomId: string): Promise<void> {
+  await redis.del(eventsKey(roomId));
 }

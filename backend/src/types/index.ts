@@ -10,6 +10,12 @@ export type Phase =
 
 export type TeamId = 'A' | 'B';
 export type Role = 'player' | 'host' | 'observer';
+export type MatchMode = 'formal' | 'test';
+
+export interface GroupMatchup {
+  groupA: number;
+  groupB: number;
+}
 
 export interface TeamState {
   currentSeat: number; // 1..SEATS, or SEATS+1 when done
@@ -19,7 +25,9 @@ export interface TeamState {
 }
 
 export interface RoundResult {
+  gameNumber: number;
   round: number;
+  matchup: GroupMatchup;
   topic: string;
   answerA: string;
   answerB: string;
@@ -42,6 +50,9 @@ export interface RoomRules {
 
 export interface RoomState {
   roomId: string;
+  matchMode: MatchMode;
+  currentGameNumber: number;
+  matchupCursor: number;
   phase: Phase;
   round: number; // 1-based
   topic: string | null;
@@ -50,6 +61,9 @@ export interface RoomState {
   score: { A: number; B: number }; // round wins
   teams: { A: TeamState; B: TeamState };
   rounds: RoundResult[];
+  activeMatchup: GroupMatchup | null;
+  matchups: GroupMatchup[];
+  nextMatchup: GroupMatchup | null;
   rules: RoomRules;
   questions: string[]; // host-curated question bank
   nextTopic: string | null; // host-selected topic for the next round
@@ -61,6 +75,7 @@ export interface RoomState {
 export interface Player {
   playerId: string;
   team: TeamId | null; // null = joined but not yet assigned by the host
+  groupNumber: number | null;
   name: string;
   connected: boolean;
   lastSeen: number;
@@ -108,10 +123,23 @@ export const joinSchema = z.object({
   roomId: z.string().min(1).max(64),
   role: z.enum(['player', 'host', 'observer']),
   name: z.string().min(1).max(40).optional(),
-  // Devices join unassigned and wait for the host to switch them to a team.
+  // Devices join the current matchup side selected by the player.
   team: z.enum(['A', 'B']).optional(),
 });
 export type JoinPayload = z.infer<typeof joinSchema>;
+
+export const matchupSchema = z.object({
+  groupA: z.number().int().min(1).max(999),
+  groupB: z.number().int().min(1).max(999),
+});
+export type MatchupPayload = z.infer<typeof matchupSchema>;
+
+export const setMatchConfigSchema = z.object({
+  matchMode: z.enum(['formal', 'test']),
+  matchups: z.array(matchupSchema).max(20).optional(),
+});
+
+export const setNextMatchupSchema = matchupSchema;
 
 // Host assigns / switches a waiting device to a team (or null to un-assign).
 export const assignTeamSchema = z.object({
@@ -119,6 +147,14 @@ export const assignTeamSchema = z.object({
   team: z.enum(['A', 'B']).nullable(),
 });
 export type AssignTeamPayload = z.infer<typeof assignTeamSchema>;
+
+export const playerIdSchema = z.object({
+  playerId: z.string().min(1).max(64),
+});
+
+export const roomIdSchema = z.object({
+  roomId: z.string().min(1).max(64),
+});
 
 export const setQuestionsSchema = z.object({
   questions: z.array(z.string().min(1).max(60)).max(200),
@@ -165,4 +201,5 @@ export type ErrorCode =
   | 'FORBIDDEN'
   | 'INVALID_PAYLOAD'
   | 'WRONG_PHASE'
-  | 'NO_QUESTIONS';
+  | 'NO_QUESTIONS'
+  | 'NO_MATCHUPS';

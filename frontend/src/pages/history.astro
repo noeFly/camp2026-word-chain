@@ -1,105 +1,201 @@
 ---
 import Layout from "@/layouts/Layout.astro"
-import ChevronRightIcon from "~icons/lucide/chevron-right"
+
+const ROOM_ID = "sitcon-camp-2026"
+const backendCandidates = [
+  import.meta.env.PUBLIC_BACKEND_URL,
+  "http://127.0.0.1:3002",
+  "http://127.0.0.1:3001",
+  "http://localhost:3002",
+  "http://localhost:3001",
+].filter(Boolean) as string[]
+
+let statusText = "找不到對戰資料"
+let modeText = "尚無紀錄"
+let rounds: any[] = []
+let loadFailed = true
+
+for (const baseUrl of backendCandidates) {
+  try {
+    const response = await fetch(`${baseUrl}/rooms/${encodeURIComponent(ROOM_ID)}`)
+    if (response.status === 404) {
+      loadFailed = false
+      statusText = "目前還沒有任何對戰紀錄"
+      modeText = "尚無紀錄"
+      rounds = []
+      break
+    }
+    if (!response.ok) continue
+    const data = await response.json()
+    loadFailed = false
+    modeText = data.matchMode === "test" ? "測試場" : "正式場"
+    rounds = data.rounds ?? []
+    statusText = rounds.length === 0 ? "目前還沒有任何對戰紀錄" : `共 ${rounds.length} 回合資料`
+    break
+  } catch {
+    // Try the next candidate.
+  }
+}
+
+if (loadFailed) {
+  statusText = "目前無法載入對戰紀錄"
+  modeText = "載入失敗"
+}
+
+type RoundRecord = {
+  gameNumber?: number
+  round: number
+  matchup: { groupA: number; groupB: number }
+  topic: string
+  answerA: string
+  answerB: string
+  scoreA: number
+  scoreB: number
+  winner: "A" | "B" | "tie"
+  reason: string
+}
+
+type MatchRecord = {
+  key: string
+  matchup: { groupA: number; groupB: number }
+  rounds: RoundRecord[]
+}
+
+const groupedMatches: MatchRecord[] = []
+
+for (const round of rounds as RoundRecord[]) {
+  if (typeof round.gameNumber === "number") {
+    const existingMatch = groupedMatches.find(
+      (match) =>
+        match.key === `game-${round.gameNumber}` &&
+        match.matchup.groupA === round.matchup.groupA &&
+        match.matchup.groupB === round.matchup.groupB
+    )
+
+    if (existingMatch) {
+      existingMatch.rounds.push(round)
+    } else {
+      groupedMatches.push({
+        key: `game-${round.gameNumber}`,
+        matchup: round.matchup,
+        rounds: [round],
+      })
+    }
+    continue
+  }
+
+  const matchupKey = `${round.matchup.groupA}-${round.matchup.groupB}`
+  const lastMatch = groupedMatches[groupedMatches.length - 1]
+  const lastRound = lastMatch?.rounds[lastMatch.rounds.length - 1]
+  const shouldStartNewMatch =
+    !lastMatch ||
+    lastMatch.key !== matchupKey ||
+    !lastRound ||
+    round.round <= lastRound.round
+
+  if (shouldStartNewMatch) {
+    groupedMatches.push({
+      key: `${matchupKey}-${groupedMatches.length + 1}`,
+      matchup: round.matchup,
+      rounds: [round],
+    })
+  } else {
+    lastMatch.rounds.push(round)
+  }
+}
 ---
 
 <Layout>
   <div class="card bg-base-300 w-full">
-    <div class="card-body gap-y-2">
-      <h1 class="text-primary text-center text-4xl font-bold tracking-widest">AI 謎題接龍</h1>
-      <div class="join">
-        <input
-          type="text"
-          id="history-id"
-          placeholder="請輸入對戰 ID"
-          class="join-item input w-full flex-1"
-        />
-        <button class="btn btn-primary join-item">
-          <ChevronRightIcon />
-        </button>
-      </div>
+    <div class="card-body gap-y-3">
+      <h1 class="text-primary text-center text-4xl font-bold tracking-widest">對戰紀錄</h1>
+      <p class="text-neutral-content/60 text-sm">{statusText}</p>
     </div>
   </div>
 
   <div class="card bg-base-300 w-full">
-    <div class="card-body gap-y-2">
-      <span class="text-primary text-2xl font-bold">對戰結果</span>
-      <div class="grid gap-y-1">
-        <span class="text-lg font-bold">獲勝組別</span>
-        <span class="text-info">A 隊</span>
+    <div class="card-body gap-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-primary text-2xl font-bold">回合列表</h2>
+        <span class="badge badge-outline">{modeText}</span>
       </div>
-      <div class="grid gap-y-1">
-        <span class="text-lg font-bold">兩隊分數</span>
-        <div class="flex items-center gap-x-2">
-          <span class="text-info font-bold">A 隊</span>
-          <div class="join">
-            <span class="btn-info btn btn-xs join-item">24</span>
-            <span class="btn-disabled btn btn-xs join-item">:</span>
-            <span class="btn-secondary btn btn-xs join-item">0</span>
-          </div>
-          <span class="text-secondary font-bold">B 隊</span>
-        </div>
-      </div>
-      <div class="grid gap-y-1">
-        <span class="text-lg font-bold">AI 點評</span>
-        <span>A 呃啊呃啊呃啊。B 叭叭叭叭叭叭。</span>
-      </div>
-    </div>
-  </div>
 
-  <div class="card bg-base-300 w-full">
-    <div class="card-body flex-row">
-      <div class="grid flex-1 gap-y-2">
-        <span class="text-info text-2xl font-bold">A 隊</span>
-        <div class="grid gap-y-1">
-          <span class="text-lg font-bold">最終答案</span>
-          <div class="flex flex-wrap gap-x-2 gap-y-1">
-            <span>第1棒答案</span>
-            <span>第2棒答案</span>
-            <span>第3棒答案</span>
-            <span>第4棒答案</span>
-            <span>第5棒答案</span>
-            <span>第6棒答案</span>
+      {
+        groupedMatches.length === 0 ? (
+          <div class="rounded-xl border border-dashed border-neutral/20 p-4 text-sm text-neutral-content/60">
+            {loadFailed ? "目前無法連線到後端，請稍後再試。" : "目前還沒有任何回合紀錄。"}
           </div>
-        </div>
-        <div class="grid gap-y-1">
-          <span class="text-lg font-bold">AI 評分</span>
-          <span>邏輯性（25%）：10 分</span>
-          <progress class="progress progress-info" value="10" max="100"></progress>
-          <span>符合度（30%）：20 分</span>
-          <progress class="progress progress-info" value="20" max="100"></progress>
-          <span>完整性（25%）：30 分</span>
-          <progress class="progress progress-info" value="30" max="100"></progress>
-          <span>創意性（20%）：40 分</span>
-          <progress class="progress progress-info" value="40" max="100"></progress>
-        </div>
-      </div>
-      <div class="divider divider-horizontal m-0"></div>
-      <div class="grid flex-1 gap-y-2">
-        <span class="text-secondary text-2xl font-bold">B 隊</span>
-        <div class="grid gap-y-1">
-          <span class="text-lg font-bold">最終答案</span>
-          <div class="flex flex-wrap gap-x-2 gap-y-1">
-            <span>第1棒答案</span>
-            <span>第2棒答案</span>
-            <span>第3棒答案</span>
-            <span>第4棒答案</span>
-            <span>第5棒答案</span>
-            <span>第6棒答案</span>
+        ) : (
+          <div class="grid gap-4">
+            {groupedMatches.map((match, index) => {
+              const winsA = match.rounds.filter((round) => round.winner === "A").length
+              const winsB = match.rounds.filter((round) => round.winner === "B").length
+              const matchWinnerText =
+                winsA === winsB
+                  ? "平手"
+                  : winsA > winsB
+                    ? `第 ${match.matchup.groupA} 組勝出`
+                    : `第 ${match.matchup.groupB} 組勝出`
+              return (
+                <article class="rounded-2xl border border-primary/10 bg-base-200 p-5 shadow">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-lg font-black">
+                      第 {index + 1} 場：第 {match.matchup.groupA} 組 vs 第 {match.matchup.groupB} 組
+                    </h3>
+                    <span class="badge badge-primary">{matchWinnerText}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-neutral-content/70">
+                    共 {match.rounds.length} 回合，系列比分 {winsA} : {winsB}
+                  </p>
+                  <div class="mt-4 grid gap-3">
+                    {match.rounds.map((round) => {
+                      const roundWinnerText =
+                        round.winner === "tie"
+                          ? "本回合平手"
+                          : round.winner === "A"
+                            ? `第 ${match.matchup.groupA} 組拿下本回合`
+                            : `第 ${match.matchup.groupB} 組拿下本回合`
+
+                      return (
+                        <section class="rounded-xl border border-neutral/15 bg-base-300 p-4">
+                          <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h4 class="font-black">第 {round.round} 回合</h4>
+                            <span class="badge badge-outline">{roundWinnerText}</span>
+                          </div>
+                          <p class="mt-2 text-sm text-neutral-content/70">
+                            題目：{round.topic || "未記錄"}
+                          </p>
+                          <div class="mt-3 grid gap-3 md:grid-cols-2">
+                            <div class="rounded-xl border border-info/15 bg-base-200 p-4">
+                              <div class="text-info text-sm font-black">
+                                第 {match.matchup.groupA} 組
+                              </div>
+                              <div class="mt-1 font-bold break-all">{round.answerA || "未作答"}</div>
+                              <div class="mt-2 text-xs text-neutral-content/60">
+                                分數：{round.scoreA}
+                              </div>
+                            </div>
+                            <div class="rounded-xl border border-secondary/15 bg-base-200 p-4">
+                              <div class="text-secondary text-sm font-black">
+                                第 {match.matchup.groupB} 組
+                              </div>
+                              <div class="mt-1 font-bold break-all">{round.answerB || "未作答"}</div>
+                              <div class="mt-2 text-xs text-neutral-content/60">
+                                分數：{round.scoreB}
+                              </div>
+                            </div>
+                          </div>
+                          <p class="mt-3 text-sm">{round.reason || "無 AI 評語"}</p>
+                        </section>
+                      )
+                    })}
+                  </div>
+                </article>
+              )
+            })}
           </div>
-        </div>
-        <div class="grid gap-y-1">
-          <span class="text-lg font-bold">AI 評分</span>
-          <span>邏輯性（25%）：10 分</span>
-          <progress class="progress progress-secondary" value="10" max="100"></progress>
-          <span>符合度（30%）：20 分</span>
-          <progress class="progress progress-secondary" value="20" max="100"></progress>
-          <span>完整性（25%）：30 分</span>
-          <progress class="progress progress-secondary" value="30" max="100"></progress>
-          <span>創意性（20%）：40 分</span>
-          <progress class="progress progress-secondary" value="40" max="100"></progress>
-        </div>
-      </div>
+        )
+      }
     </div>
   </div>
 </Layout>

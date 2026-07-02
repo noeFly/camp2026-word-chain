@@ -4,6 +4,7 @@ import {
   applyJudge,
   bothTeamsDone,
   charCount,
+  FALLBACK_MATCHUP,
   createRoom,
   isMatchOver,
   startRound,
@@ -27,22 +28,22 @@ describe('charCount', () => {
 
 describe('validateSubmit', () => {
   it('rejects wrong seat', () => {
-    const s = startRound(createRoom('r', null), 'topic');
+    const s = startRound(createRoom('r', null), 'topic', FALLBACK_MATCHUP);
     expect(validateSubmit(s.teams.A, 2, '一二三四五')).toBe('NOT_YOUR_TURN');
   });
   it('rejects wrong length', () => {
-    const s = startRound(createRoom('r', null), 'topic');
+    const s = startRound(createRoom('r', null), 'topic', FALLBACK_MATCHUP);
     expect(validateSubmit(s.teams.A, 1, '一二三四')).toBe('BAD_LENGTH');
   });
   it('accepts valid', () => {
-    const s = startRound(createRoom('r', null), 'topic');
+    const s = startRound(createRoom('r', null), 'topic', FALLBACK_MATCHUP);
     expect(validateSubmit(s.teams.A, 1, '一二三四五')).toBeNull();
   });
 });
 
 describe('chaining', () => {
   it('advances seat and marks done after 6 segments', () => {
-    let s = startRound(createRoom('r', null), 'topic');
+    let s = startRound(createRoom('r', null), 'topic', FALLBACK_MATCHUP);
     s = fullChain(s, 'A');
     expect(s.teams.A.done).toBe(true);
     expect(s.teams.A.segments).toHaveLength(6);
@@ -50,7 +51,7 @@ describe('chaining', () => {
   });
 
   it('bothTeamsDone only when both reach 6', () => {
-    let s = startRound(createRoom('r', null), 'topic');
+    let s = startRound(createRoom('r', null), 'topic', FALLBACK_MATCHUP);
     s = fullChain(s, 'A');
     expect(bothTeamsDone(s)).toBe(false);
     s = fullChain(s, 'B');
@@ -58,7 +59,7 @@ describe('chaining', () => {
   });
 
   it('timeout records an empty segment and advances', () => {
-    let s = startRound(createRoom('r', null), 'topic');
+    let s = startRound(createRoom('r', null), 'topic', FALLBACK_MATCHUP);
     s = timeoutSegment(s, 'A');
     expect(s.teams.A.segments).toEqual(['']);
     expect(s.teams.A.currentSeat).toBe(2);
@@ -78,19 +79,19 @@ describe('judging', () => {
   });
 
   it('derives winner from totals, ignoring model field', () => {
-    let s = startRound(createRoom('r', null), 'topic');
+    let s = startRound(createRoom('r', null), 'topic', FALLBACK_MATCHUP);
     s = applyJudge(s, judge(80, 60));
     expect(s.score.A).toBe(1);
     expect(s.rounds[0]!.winner).toBe('A');
   });
 
-  it('match over at 3 round wins', () => {
-    let s = startRound(createRoom('r', null), 'topic');
-    for (let i = 0; i < 3; i++) {
-      s = startRound(s, 'topic');
+  it('match ends after reaching winsToTakeMatch', () => {
+    let s = createRoom('r', null);
+    for (let i = 0; i < s.rules.winsToTakeMatch; i++) {
+      s = startRound(s, 'topic', FALLBACK_MATCHUP);
       s = applyJudge(s, judge(90, 10));
     }
     expect(isMatchOver(s)).toBe(true);
-    expect(s.score.A).toBe(3);
+    expect(s.score.A).toBe(s.rules.winsToTakeMatch);
   });
 });

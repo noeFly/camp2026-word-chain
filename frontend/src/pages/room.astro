@@ -51,6 +51,36 @@ import PlayIcon from "~icons/lucide/play"
       <p id="host-save-status" class="text-neutral-content/50 text-xs"></p>
 
       <div class="grid gap-y-1">
+        <label class="text-xs font-bold">場次模式</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="set-formal-mode-btn" class="btn btn-outline btn-sm">正式場</button>
+          <button id="set-test-mode-btn" class="btn btn-outline btn-sm">測試場</button>
+        </div>
+        <p id="matchup-status-label" class="text-neutral-content/60 min-h-5 text-xs"></p>
+      </div>
+
+      <div class="grid gap-y-1">
+        <label class="text-xs font-bold">正式場 5 回合順序（每行 `A組,B組`）</label>
+        <textarea
+          id="matchups-input"
+          class="textarea w-full font-medium"
+          placeholder="1,2&#10;3,4&#10;5,6&#10;7,8&#10;9,10"></textarea>
+        <button id="save-matchups-btn" class="btn btn-primary btn-sm w-full">儲存正式場順序</button>
+      </div>
+
+      <div class="grid gap-y-1">
+        <label class="text-xs font-bold">測試場下一回合組別</label>
+        <div class="grid grid-cols-[1fr_auto_1fr] gap-2">
+          <input id="test-group-a-input" type="number" min="1" class="input input-sm" placeholder="左側組別" />
+          <div class="flex items-center justify-center text-sm font-black">vs</div>
+          <input id="test-group-b-input" type="number" min="1" class="input input-sm" placeholder="右側組別" />
+        </div>
+        <button id="save-test-matchup-btn" class="btn btn-secondary btn-sm w-full">設定測試回合組別</button>
+      </div>
+
+      <div class="divider my-0"></div>
+
+      <div class="grid gap-y-1">
         <label class="text-xs font-bold">自訂題庫</label>
         <textarea
           id="questions-input"
@@ -129,6 +159,16 @@ import PlayIcon from "~icons/lucide/play"
         <button id="save-rules-btn" class="btn btn-accent btn-sm mt-auto w-full">套用規則</button>
       </div>
       <div class="divider my-0"></div>
+
+      <div class="grid gap-y-1">
+        <label class="text-xs font-bold">紀錄維護</label>
+        <button id="clear-history-btn" class="btn btn-outline btn-error btn-sm w-full">
+          清空舊對戰紀錄
+        </button>
+        <p class="text-neutral-content/60 text-xs">只清除歷史紀錄，不會重設目前房間或賽程設定。</p>
+      </div>
+
+      <div class="divider my-0"></div>
       <button id="start-game-btn" class="btn btn-success btn-md hidden">
         <PlayIcon class="size-5" />開始比賽
       </button>
@@ -137,7 +177,7 @@ import PlayIcon from "~icons/lucide/play"
 </Layout>
 
 <script>
-  import { clearSession, getSession, getSocket, updateSessionTeam } from "@/utils/socket"
+  import { clearSession, getSession, getSocket, updateSessionAssignment } from "@/utils/socket"
 
   const roomIdDisplay = document.getElementById("room-id-display") as HTMLParagraphElement
   const lobbyStatusText = document.getElementById("lobby-status-text") as HTMLParagraphElement
@@ -151,6 +191,14 @@ import PlayIcon from "~icons/lucide/play"
   const waitingCount = document.getElementById("waiting-count") as HTMLSpanElement
   const hostSetupPanel = document.getElementById("host-setup-panel") as HTMLElement
   const hostSaveStatus = document.getElementById("host-save-status") as HTMLParagraphElement
+  const setFormalModeBtn = document.getElementById("set-formal-mode-btn") as HTMLButtonElement
+  const setTestModeBtn = document.getElementById("set-test-mode-btn") as HTMLButtonElement
+  const matchupStatusLabel = document.getElementById("matchup-status-label") as HTMLParagraphElement
+  const matchupsInput = document.getElementById("matchups-input") as HTMLTextAreaElement
+  const saveMatchupsBtn = document.getElementById("save-matchups-btn") as HTMLButtonElement
+  const testGroupAInput = document.getElementById("test-group-a-input") as HTMLInputElement
+  const testGroupBInput = document.getElementById("test-group-b-input") as HTMLInputElement
+  const saveTestMatchupBtn = document.getElementById("save-test-matchup-btn") as HTMLButtonElement
   const questionsInput = document.getElementById("questions-input") as HTMLTextAreaElement
   const saveQuestionsBtn = document.getElementById("save-questions-btn") as HTMLButtonElement
   const topicInput = document.getElementById("topic-input") as HTMLInputElement
@@ -163,6 +211,7 @@ import PlayIcon from "~icons/lucide/play"
   const ruleSeats = document.getElementById("rule-seats") as HTMLInputElement
   const ruleWins = document.getElementById("rule-wins") as HTMLInputElement
   const saveRulesBtn = document.getElementById("save-rules-btn") as HTMLButtonElement
+  const clearHistoryBtn = document.getElementById("clear-history-btn") as HTMLButtonElement
 
   const session = getSession()
   const role = sessionStorage.getItem("wc_role") || (session ? "player" : null)
@@ -170,6 +219,7 @@ import PlayIcon from "~icons/lucide/play"
   let currentPlayers: any[] = []
   let rulesDirty = false
   let questionsDirty = false
+  let matchupsDirty = false
 
   if (!role) window.location.href = "/"
   if (roomIdDisplay)
@@ -182,6 +232,16 @@ import PlayIcon from "~icons/lucide/play"
   const socket = getSocket()
   if (!socket.connected) socket.connect()
 
+  socket.on("connect_error", () => {
+    lobbyStatusText.textContent = "無法連線到後端服務，請確認後端是否已啟動。"
+  })
+
+  socket.on("room:kicked", () => {
+    clearSession()
+    sessionStorage.clear()
+    window.location.href = "/"
+  })
+
   socket.on("connect", () => {
     if (role === "player" && session) {
       socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
@@ -190,7 +250,7 @@ import PlayIcon from "~icons/lucide/play"
           window.location.href = "/"
           return
         }
-        updateSessionTeam(res.team ?? null)
+        updateSessionAssignment(res.team ?? null, session.groupNumber ?? null)
         lobbyStatusText.textContent = res.team
           ? `已加入${res.team === "A" ? "藍隊" : "紅隊"}，等待主持人開始比賽...`
           : "尚未選擇隊伍，請回首頁重新登入。"
@@ -220,7 +280,7 @@ import PlayIcon from "~icons/lucide/play"
   socket.on("presence:update", ({ players }: { players: any[] }) => {
     currentPlayers = players
     const me = session ? players.find((p) => p.playerId === session.playerId) : null
-    if (me) updateSessionTeam(me.team ?? null)
+    if (me) updateSessionAssignment(me.team ?? null, me.groupNumber ?? null)
     renderPresence()
   })
 
@@ -249,7 +309,7 @@ import PlayIcon from "~icons/lucide/play"
       : ""
     const hostControls =
       role === "host" && player
-        ? `<button class="btn btn-ghost btn-xs btn-warning" data-assign="" data-player-id="${player.playerId}">移出隊伍</button>`
+        ? `<div class="flex items-center gap-1"><button class="btn btn-ghost btn-xs btn-warning" data-assign="" data-player-id="${player.playerId}">移出隊伍</button><button class="btn btn-ghost btn-xs btn-error" data-remove-player="true" data-player-id="${player.playerId}">移除使用者</button></div>`
         : ""
     row.innerHTML = `
       <div class="">
@@ -277,7 +337,7 @@ import PlayIcon from "~icons/lucide/play"
         "flex items-center justify-between rounded-xl border border-warning/15 bg-base-200 p-3"
       const controls =
         role === "host"
-          ? `<div class="join"><button class="btn btn-info btn-xs join-item" data-assign="A" data-player-id="${player.playerId}">A</button><button class="btn btn-secondary btn-xs join-item" data-assign="B" data-player-id="${player.playerId}">B</button></div>`
+          ? `<div class="flex items-center gap-1"><div class="join"><button class="btn btn-info btn-xs join-item" data-assign="A" data-player-id="${player.playerId}">A</button><button class="btn btn-secondary btn-xs join-item" data-assign="B" data-player-id="${player.playerId}">B</button></div><button class="btn btn-ghost btn-xs btn-error" data-remove-player="true" data-player-id="${player.playerId}">移除</button></div>`
           : ""
       row.innerHTML = `<span class="font-bold">${escapeHtml(player.name)}</span>${controls}`
       waitingPlayers.appendChild(row)
@@ -289,6 +349,13 @@ import PlayIcon from "~icons/lucide/play"
     const button = target.closest("button[data-player-id]") as HTMLButtonElement | null
     if (!button) return
     const playerId = button.dataset.playerId
+    if (button.dataset.removePlayer === "true") {
+      socket.emit("host:remove_player", { playerId }, (res: any) => {
+        if (!res.ok) setHostStatus(`移除使用者失敗：${res.error}`, true)
+        else setHostStatus("已移除使用者")
+      })
+      return
+    }
     const rawTeam = button.dataset.assign
     const team = rawTeam === "A" || rawTeam === "B" ? rawTeam : null
     socket.emit("host:assign_team", { playerId, team }, (res: any) => {
@@ -298,9 +365,53 @@ import PlayIcon from "~icons/lucide/play"
   })
 
   questionsInput?.addEventListener("input", () => (questionsDirty = true))
+  matchupsInput?.addEventListener("input", () => (matchupsDirty = true))
   ;[ruleIntro, ruleTurn, ruleResult, ruleSeats, ruleWins].forEach((el) =>
     el?.addEventListener("input", () => (rulesDirty = true))
   )
+
+  setFormalModeBtn?.addEventListener("click", () => {
+    const matchups = parseMatchups(matchupsInput.value)
+    if (!matchups.length) return setHostStatus("請先輸入至少一組正式場順序", true)
+    socket.emit("host:set_match_config", { matchMode: "formal", matchups }, (res: any) => {
+      if (!res.ok) setHostStatus(`正式場設定失敗：${res.error}`, true)
+      else {
+        matchupsDirty = false
+        setHostStatus("正式場順序已套用")
+      }
+    })
+  })
+
+  setTestModeBtn?.addEventListener("click", () => {
+    socket.emit("host:set_match_config", { matchMode: "test" }, (res: any) => {
+      if (!res.ok) setHostStatus(`切換測試場失敗：${res.error}`, true)
+      else setHostStatus("已切換成測試場")
+    })
+  })
+
+  saveMatchupsBtn?.addEventListener("click", () => {
+    const matchups = parseMatchups(matchupsInput.value)
+    if (!matchups.length) return setHostStatus("正式場順序格式錯誤", true)
+    socket.emit("host:set_match_config", { matchMode: "formal", matchups }, (res: any) => {
+      if (!res.ok) setHostStatus(`正式場順序儲存失敗：${res.error}`, true)
+      else {
+        matchupsDirty = false
+        setHostStatus(`正式場順序已儲存（${matchups.length} 回合）`)
+      }
+    })
+  })
+
+  saveTestMatchupBtn?.addEventListener("click", () => {
+    const groupA = Number(testGroupAInput.value)
+    const groupB = Number(testGroupBInput.value)
+    if (Number.isNaN(groupA) || Number.isNaN(groupB)) {
+      return setHostStatus("請輸入測試場兩個組別編號", true)
+    }
+    socket.emit("host:set_next_matchup", { groupA, groupB }, (res: any) => {
+      if (!res.ok) setHostStatus(`測試場組別設定失敗：${res.error}`, true)
+      else setHostStatus(`測試場下一回合已設為第 ${groupA} 組 vs 第 ${groupB} 組`)
+    })
+  })
 
   saveQuestionsBtn?.addEventListener("click", () => {
     const questions = questionsInput.value
@@ -355,6 +466,15 @@ import PlayIcon from "~icons/lucide/play"
     })
   })
 
+  clearHistoryBtn?.addEventListener("click", () => {
+    const confirmed = confirm("確認要清空目前所有舊對戰紀錄嗎？此動作不會重設房間設定。")
+    if (!confirmed) return
+    socket.emit("host:clear_history", {}, (res: any) => {
+      if (!res.ok) setHostStatus(`清空對戰紀錄失敗：${res.error}`, true)
+      else setHostStatus("舊對戰紀錄已清空")
+    })
+  })
+
   startGameBtn?.addEventListener("click", () => {
     socket.emit("match:start", {}, (res: any) => {
       if (!res.ok) alert(`開始失敗：${res.error}`)
@@ -371,6 +491,11 @@ import PlayIcon from "~icons/lucide/play"
 
   function syncHostForm(state: any) {
     if (role !== "host") return
+    if (!matchupsDirty) {
+      matchupsInput.value = (state.matchups ?? [])
+        .map((matchup: any) => `${matchup.groupA},${matchup.groupB}`)
+        .join("\n")
+    }
     if (!questionsDirty) questionsInput.value = (state.questions ?? []).join("\n")
     if (!rulesDirty && state.rules) {
       ruleIntro.value = String(Math.round(state.rules.introMs / 1000))
@@ -382,6 +507,11 @@ import PlayIcon from "~icons/lucide/play"
     nextTopicLabel.textContent = state.nextTopic
       ? `下一題：${state.nextTopic}`
       : "尚未指定下一題，開始時會從題庫或 AI 產生。"
+    matchupStatusLabel.textContent = describeMatchupState(state)
+    if (state.nextMatchup) {
+      testGroupAInput.value = String(state.nextMatchup.groupA)
+      testGroupBInput.value = String(state.nextMatchup.groupB)
+    }
   }
 
   function setHostStatus(message: string, isError = false) {
@@ -398,5 +528,29 @@ import PlayIcon from "~icons/lucide/play"
       (char) =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char] ?? char
     )
+  }
+
+  function parseMatchups(raw: string) {
+    return raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [groupA, groupB] = line.split(",").map((value) => Number(value.trim()))
+        return { groupA, groupB }
+      })
+      .filter((matchup) => !Number.isNaN(matchup.groupA) && !Number.isNaN(matchup.groupB))
+  }
+
+  function describeMatchupState(state: any) {
+    const current = state.currentMatchup
+    const next = state.nextMatchup
+    if (state.matchMode === "test") {
+      if (next) return `測試場：下一回合待上場為第 ${next.groupA} 組 vs 第 ${next.groupB} 組`
+      if (current) return `測試場：目前顯示第 ${current.groupA} 組 vs 第 ${current.groupB} 組`
+      return "測試場：請先指定本回合組別"
+    }
+    if (current) return `正式場：目前 / 下一回合為第 ${current.groupA} 組 vs 第 ${current.groupB} 組`
+    return "正式場：請先設定回合順序"
   }
 </script>

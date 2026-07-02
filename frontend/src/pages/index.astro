@@ -8,15 +8,15 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
     <div class="card-body">
       <h1 class="text-primary text-center text-4xl font-bold tracking-widest">AI 謎題接龍</h1>
       <div class="flex w-full flex-col items-center gap-y-4">
-        <span>請選擇隊伍登入</span>
+        <span id="matchup-label">請選擇目前對戰組別登入</span>
 
         <div class="grid w-full grid-cols-2 gap-3">
           <button id="blue-login-btn" class="btn btn-info btn-lg justify-between px-5">
-            <span>藍隊</span>
+            <span id="blue-login-label">A 組</span>
             <ChevronRightIcon class="size-6" />
           </button>
           <button id="red-login-btn" class="btn btn-secondary btn-lg justify-between px-5">
-            <span>紅隊</span>
+            <span id="red-login-label">B 組</span>
             <ChevronRightIcon class="size-6" />
           </button>
         </div>
@@ -28,14 +28,15 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
           class="input input-sm w-full"
         />
 
+        <span id="room-mode-msg" class="text-center text-sm text-neutral-content/60"></span>
         <span id="error-msg" class="text-error text-center"></span>
       </div>
 
       <div class="divider my-0">或</div>
 
       <div class="flex justify-center gap-x-4">
-        <a id="host-login" href="#" class="btn">加入主辦方</a>
-        <a id="obs-login" href="#" class="btn">加入旁觀者</a>
+        <button id="host-login" type="button" class="btn">加入主辦方</button>
+        <button id="obs-login" type="button" class="btn">加入旁觀者</button>
         <a href="/history" class="btn">查看對戰資料</a>
       </div>
     </div>
@@ -47,10 +48,18 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
 
   const blueLoginBtn = document.getElementById("blue-login-btn") as HTMLButtonElement
   const redLoginBtn = document.getElementById("red-login-btn") as HTMLButtonElement
+  const blueLoginLabel = document.getElementById("blue-login-label") as HTMLSpanElement
+  const redLoginLabel = document.getElementById("red-login-label") as HTMLSpanElement
+  const matchupLabel = document.getElementById("matchup-label") as HTMLSpanElement
+  const roomModeMsg = document.getElementById("room-mode-msg") as HTMLSpanElement
   const roomIdInput = document.getElementById("room-id-input") as HTMLInputElement
   const errorMsg = document.getElementById("error-msg") as HTMLSpanElement
-  const hostLogin = document.getElementById("host-login") as HTMLAnchorElement
-  const obsLogin = document.getElementById("obs-login") as HTMLAnchorElement
+  const hostLogin = document.getElementById("host-login") as HTMLButtonElement
+  const obsLogin = document.getElementById("obs-login") as HTMLButtonElement
+  const socket = getSocket()
+  let activeMatchup = { groupA: 1, groupB: 2 }
+  let activeMode: "formal" | "test" = "formal"
+  let watchedRoomId = ""
 
   function showError(msg: string) {
     if (errorMsg) {
@@ -69,18 +78,70 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
     if (redLoginBtn) redLoginBtn.disabled = disabled
   }
 
-  async function handleJoin(role: "player" | "host" | "observer", team?: "A" | "B") {
-    clearError()
+  function getRoomId() {
+    return roomIdInput.value !== "" ? roomIdInput.value : "sitcon-camp-2026"
+  }
 
-    setPlayerButtonsDisabled(true)
+  function applyRoomMeta(data: any) {
+    activeMode = data.matchMode === "test" ? "test" : "formal"
+    activeMatchup = data.currentMatchup ?? activeMatchup
+    matchupLabel.textContent =
+      activeMode === "test" ? "請選擇本回合測試組別登入" : "請選擇目前回合組別登入"
+    roomModeMsg.textContent =
+      activeMode === "test"
+        ? "測試場：由關主逐回合指定要上場的兩組。"
+        : `正式場：依預排順序進行，現為第 ${Math.max(1, (data.matchupCursor ?? 0) + 1)} 組。`
+    blueLoginLabel.textContent = `第 ${activeMatchup.groupA} 組`
+    redLoginLabel.textContent = `第 ${activeMatchup.groupB} 組`
+  }
 
-    const socket = getSocket()
+  function setDefaultRoomMeta() {
+    activeMode = "formal"
+    activeMatchup = { groupA: 1, groupB: 2 }
+    matchupLabel.textContent = "請選擇目前對戰組別登入"
+    roomModeMsg.textContent = "房間尚未建立，預設顯示第 1 組與第 2 組。"
+    blueLoginLabel.textContent = `第 ${activeMatchup.groupA} 組`
+    redLoginLabel.textContent = `第 ${activeMatchup.groupB} 組`
+  }
+
+  function syncRoomMeta() {
+    const roomId = getRoomId()
+    watchedRoomId = roomId
 
     if (!socket.connected) {
       socket.connect()
     }
 
-    const roomId = roomIdInput.value !== "" ? roomIdInput.value : "sitcon-camp-2026" // 預設房間 ID
+    socket.emit("room:watch", { roomId }, (res: any) => {
+      if (!res?.ok) {
+        setDefaultRoomMeta()
+      }
+    })
+  }
+
+  async function handleJoin(role: "player" | "host" | "observer", team?: "A" | "B") {
+    clearError()
+
+    if (role === "host" || role === "observer") {
+      const roomId = getRoomId()
+      sessionStorage.setItem("wc_role", role)
+      sessionStorage.setItem("wc_room_id", roomId)
+      window.location.href = "/room"
+      return
+    }
+
+    setPlayerButtonsDisabled(true)
+
+    if (!socket.connected) {
+      socket.connect()
+    }
+
+    socket.once("connect_error", () => {
+      showError("無法連線到後端服務，請稍後再試。")
+      setPlayerButtonsDisabled(false)
+    })
+
+    const roomId = getRoomId()
     let payload: any = { roomId, role }
 
     if (role === "player") {
@@ -93,7 +154,7 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
       payload = {
         ...payload,
         team,
-        name: team === "A" ? "藍隊" : "紅隊",
+        name: `第 ${team === "A" ? activeMatchup.groupA : activeMatchup.groupB} 組`,
       }
     }
 
@@ -107,16 +168,14 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
             playerId: res.playerId,
             team: assignedTeam,
             seat: null,
+            groupNumber:
+              assignedTeam === "A"
+                ? activeMatchup.groupA
+                : assignedTeam === "B"
+                  ? activeMatchup.groupB
+                  : undefined,
           })
           // 跳轉至等待大廳
-          window.location.href = "/room"
-        } else if (role === "host") {
-          sessionStorage.setItem("wc_role", "host")
-          sessionStorage.setItem("wc_room_id", roomId)
-          window.location.href = "/room"
-        } else if (role === "observer") {
-          sessionStorage.setItem("wc_role", "observer")
-          sessionStorage.setItem("wc_room_id", roomId)
           window.location.href = "/room"
         }
       } else {
@@ -129,16 +188,15 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
   // 綁定點擊事件
   blueLoginBtn?.addEventListener("click", () => handleJoin("player", "A"))
   redLoginBtn?.addEventListener("click", () => handleJoin("player", "B"))
+  roomIdInput?.addEventListener("input", () => void syncRoomMeta())
 
   // 主辦方登入
-  hostLogin?.addEventListener("click", (e) => {
-    e.preventDefault()
+  hostLogin?.addEventListener("click", () => {
     handleJoin("host")
   })
 
   // 觀戰者登入
-  obsLogin?.addEventListener("click", (e) => {
-    e.preventDefault()
+  obsLogin?.addEventListener("click", () => {
     handleJoin("observer")
   })
 
@@ -146,4 +204,16 @@ import ChevronRightIcon from "~icons/lucide/chevron-right"
   clearSession()
   sessionStorage.removeItem("wc_role")
   sessionStorage.removeItem("wc_room_id")
+  socket.on("room:state", (state: any) => {
+    if (watchedRoomId && state.roomId === watchedRoomId) {
+      applyRoomMeta(state)
+    }
+  })
+  socket.on("connect", () => {
+    if (watchedRoomId) syncRoomMeta()
+  })
+  socket.on("connect_error", () => {
+    setDefaultRoomMeta()
+  })
+  syncRoomMeta()
 </script>

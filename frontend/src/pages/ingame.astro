@@ -16,13 +16,13 @@ import ZapIcon from "~icons/lucide/zap"
       <h1 class="text-neutral-content text-lg font-bold" id="room-info">AI 謎題接龍</h1>
       <!-- 兩隊分數 -->
       <div class="flex items-center gap-x-2">
-        <span class="text-info text-sm font-black">藍隊</span>
+        <span id="header-group-a" class="text-info text-sm font-black">第 1 組</span>
         <div class="join">
           <span id="match-score-a" class="btn btn-xs btn-info font-mono font-bold">0</span>
           <span class="btn btn-xs btn-disabled font-mono">:</span>
           <span id="match-score-b" class="btn btn-xs btn-secondary font-mono font-bold">0</span>
         </div>
-        <span class="text-secondary text-sm font-bold">紅隊</span>
+        <span id="header-group-b" class="text-secondary text-sm font-bold">第 2 組</span>
       </div>
       <!--  -->
     </div>
@@ -44,6 +44,9 @@ import ZapIcon from "~icons/lucide/zap"
         </button>
         <button id="host-force-judge-btn" class="btn btn-xs btn-error">
           <ZapIcon class="size-4" />強制評審
+        </button>
+        <button id="host-force-end-game-btn" class="btn btn-xs btn-outline btn-error">
+          結束這組遊戲
         </button>
       </div>
 
@@ -173,7 +176,7 @@ import ZapIcon from "~icons/lucide/zap"
       <div id="team-a-answer" class="card bg-base-300 border-info/10 border shadow-xl">
         <div class="card-body p-5">
           <div class="border-info/20 mb-4 flex items-center justify-between border-b pb-2">
-            <span class="text-info text-lg font-extrabold">Team A (藍色小隊)</span>
+            <span id="team-a-title" class="text-info text-lg font-extrabold">第 1 組</span>
             <div
               id="timer-team-a"
               class="badge badge-info hidden animate-pulse py-2.5 font-mono font-bold">--s</div
@@ -193,7 +196,7 @@ import ZapIcon from "~icons/lucide/zap"
       <div id="team-b-answer" class="card bg-base-300 border-secondary/10 border shadow-xl">
         <div class="card-body p-5">
           <div class="border-secondary/20 mb-4 flex items-center justify-between border-b pb-2">
-            <span class="text-secondary text-lg font-extrabold">Team B (橘色小隊)</span>
+            <span id="team-b-title" class="text-secondary text-lg font-extrabold">第 2 組</span>
             <div
               id="timer-team-b"
               class="badge badge-secondary hidden animate-pulse py-2.5 font-mono font-bold">--s</div
@@ -262,7 +265,7 @@ import ZapIcon from "~icons/lucide/zap"
       <AwardIcon class="text-warning h-12 w-12 animate-bounce" />
       <span class="text-warning text-xs font-black tracking-widest uppercase">單回合評審結果</span>
       <h2 class="text-4xl font-extrabold tracking-wide" id="result-winner-text"
-        >藍色小隊 (Team A) 獲勝！</h2
+        >第 1 組獲勝！</h2
       >
     </div>
 
@@ -272,7 +275,7 @@ import ZapIcon from "~icons/lucide/zap"
       <div class="card bg-base-300 border-info/20 border shadow-xl">
         <div class="card-body p-5">
           <div class="border-info/10 mb-4 flex items-center justify-between border-b pb-2">
-            <span class="text-info text-lg font-black">藍色小隊 — Team A</span>
+            <span id="result-group-a-title" class="text-info text-lg font-black">第 1 組</span>
             <span id="result-score-a" class="text-info font-mono text-3xl font-black">0 分</span>
           </div>
 
@@ -287,7 +290,7 @@ import ZapIcon from "~icons/lucide/zap"
       <div class="card bg-base-300 border-secondary/20 border shadow-xl">
         <div class="card-body p-5">
           <div class="border-secondary/10 mb-4 flex items-center justify-between border-b pb-2">
-            <span class="text-secondary text-lg font-black">橘色小隊 — Team B</span>
+            <span id="result-group-b-title" class="text-secondary text-lg font-black">第 2 組</span>
             <span id="result-score-b" class="text-secondary font-mono text-3xl font-black"
               >0 分</span
             >
@@ -340,32 +343,43 @@ import ZapIcon from "~icons/lucide/zap"
     <AwardIcon class="text-warning h-20 w-20 animate-pulse" />
     <h2
       class="text-warning text-5xl font-black tracking-widest drop-shadow-lg"
-      id="matchover-winner-text">Team A 取得最終勝利！</h2
+      id="matchover-winner-text">正式場已完成</h2
     >
     <p class="text-neutral-content/70 text-lg">經過多回合的智慧謎語接龍激烈交鋒，恭喜獲勝組別！</p>
 
     <div class="divider my-0 max-w-sm"></div>
 
     <div class="flex gap-x-4">
-      <button id="back-to-lobby-btn" class="btn btn-primary btn-lg px-10">回到大廳</button>
+      <button id="end-game-btn" class="btn btn-primary btn-lg hidden px-10">結束遊戲</button>
+      <div id="matchover-waiting-banner" class="alert alert-info max-w-md justify-center font-bold">
+        <HourglassIcon class="h-5 w-5 animate-spin" />
+        <span>等待主持人結束本場對戰...</span>
+      </div>
     </div>
   </div>
 </Layout>
 
 <script>
-  import { clearSession, getSession, getSocket, updateSessionTeam } from "@/utils/socket"
+  import { clearSession, getSession, getSocket, updateSessionAssignment } from "@/utils/socket"
 
   // Shared UI Element References
   const roundNumBadge = document.getElementById("round-num-badge") as HTMLSpanElement
   const roomInfo = document.getElementById("room-info") as HTMLHeadingElement
   const matchScoreA = document.getElementById("match-score-a") as HTMLSpanElement
   const matchScoreB = document.getElementById("match-score-b") as HTMLSpanElement
+  const headerGroupA = document.getElementById("header-group-a") as HTMLSpanElement
+  const headerGroupB = document.getElementById("header-group-b") as HTMLSpanElement
+  const teamATitle = document.getElementById("team-a-title") as HTMLSpanElement
+  const teamBTitle = document.getElementById("team-b-title") as HTMLSpanElement
+  const resultGroupATitle = document.getElementById("result-group-a-title") as HTMLSpanElement
+  const resultGroupBTitle = document.getElementById("result-group-b-title") as HTMLSpanElement
 
   // Host live setup
   const hostLiveSetupPanel = document.getElementById("host-live-setup-panel") as HTMLElement
   const hostPauseBtn = document.getElementById("host-pause-btn") as HTMLButtonElement
   const hostResumeBtn = document.getElementById("host-resume-btn") as HTMLButtonElement
   const hostForceJudgeBtn = document.getElementById("host-force-judge-btn") as HTMLButtonElement
+  const hostForceEndGameBtn = document.getElementById("host-force-end-game-btn") as HTMLButtonElement
   const hostLiveStatus = document.getElementById("host-live-status") as HTMLParagraphElement
   const liveQuestionsInput = document.getElementById("live-questions-input") as HTMLTextAreaElement
   const liveSaveQuestionsBtn = document.getElementById(
@@ -407,6 +421,12 @@ import ZapIcon from "~icons/lucide/zap"
   }
 
   // Re-establish session or join
+  socket.on("room:kicked", () => {
+    clearSession()
+    sessionStorage.clear()
+    window.location.href = "/"
+  })
+
   socket.on("connect", () => {
     if (role === "player" && session) {
       socket.emit("room:rejoin", { roomId, playerId: session.playerId }, (res: any) => {
@@ -414,7 +434,7 @@ import ZapIcon from "~icons/lucide/zap"
           clearSession()
           window.location.href = "/"
         } else {
-          updateSessionTeam(res.team ?? null)
+          updateSessionAssignment(res.team ?? null, session.groupNumber ?? null)
         }
       })
     } else {
@@ -448,7 +468,7 @@ import ZapIcon from "~icons/lucide/zap"
   socket.on("presence:update", ({ players }: { players: any[] }) => {
     const currentSession = getSession()
     const me = currentSession ? players.find((p) => p.playerId === currentSession.playerId) : null
-    if (me) updateSessionTeam(me.team ?? null)
+    if (me) updateSessionAssignment(me.team ?? null, me.groupNumber ?? null)
   })
 
   // Core Room State Listener
@@ -457,11 +477,12 @@ import ZapIcon from "~icons/lucide/zap"
     clearActiveTimer()
 
     syncLiveHostForm(state)
+    syncGroupLabels(state)
 
     // 1. Update Global Header Info
     if (roundNumBadge) roundNumBadge.textContent = `Round ${state.round}`
-    if (matchScoreA) matchScoreA.textContent = String(state.score.A)
-    if (matchScoreB) matchScoreB.textContent = String(state.score.B)
+    if (matchScoreA) matchScoreA.textContent = String(state.score.A ?? 0)
+    if (matchScoreB) matchScoreB.textContent = String(state.score.B ?? 0)
 
     // Host Pause status sync
     if (role === "host") {
@@ -484,8 +505,12 @@ import ZapIcon from "~icons/lucide/zap"
     // 2. Render State Phase
     switch (state.phase) {
       case "LOBBY":
-        // If somehow in lobby, go to lobby page
-        window.location.href = "/room"
+        if (role === "player") {
+          clearSession()
+          window.location.href = "/"
+        } else {
+          window.location.href = "/room"
+        }
         break
 
       case "ROUND_INTRO":
@@ -800,7 +825,10 @@ import ZapIcon from "~icons/lucide/zap"
         resultWinnerLine.className = "text-4xl font-extrabold tracking-wide text-warning"
         resultWinnerLine.textContent = "本局平手！"
       } else {
-        const teamName = lastResult.winner === "A" ? "藍色小隊 (Team A)" : "橘色小隊 (Team B)"
+        const teamName =
+          lastResult.winner === "A"
+            ? `第 ${lastResult.matchup.groupA} 組`
+            : `第 ${lastResult.matchup.groupB} 組`
         resultWinnerLine.className = `text-4xl font-extrabold tracking-wide text-${lastResult.winner === "A" ? "info" : "secondary"}`
         resultWinnerLine.textContent = `🎉 恭喜 ${teamName} 拿下此局！`
       }
@@ -871,23 +899,54 @@ import ZapIcon from "~icons/lucide/zap"
 
   // ================= RENDER MATCH_OVER =================
   const matchoverWinnerText = document.getElementById("matchover-winner-text") as HTMLHeadingElement
-  const backToLobbyBtn = document.getElementById("back-to-lobby-btn") as HTMLButtonElement
+  const endGameBtn = document.getElementById("end-game-btn") as HTMLButtonElement
+  const matchoverWaitingBanner = document.getElementById("matchover-waiting-banner") as HTMLDivElement
 
   function renderMatchOver(state: any) {
     phaseMatchover?.classList.remove("hidden")
-
-    // Determine winner based on score
-    const winner = state.score.A > state.score.B ? "藍色小隊 (Team A)" : "橘色小隊 (Team B)"
+    const matchup = state.currentMatchup ?? state.rounds?.[state.rounds.length - 1]?.matchup
+    const groupA = matchup?.groupA ?? 1
+    const groupB = matchup?.groupB ?? 2
+    const winner =
+      state.score.A === state.score.B
+        ? "平手"
+        : state.score.A > state.score.B
+          ? `第 ${groupA} 組獲勝`
+          : `第 ${groupB} 組獲勝`
     if (matchoverWinnerText) {
-      matchoverWinnerText.textContent = `🏆 恭喜 ${winner} 榮登最終霸主！`
+      matchoverWinnerText.textContent = `${winner}，本場對戰結束`
+    }
+    if (role === "host") {
+      endGameBtn?.classList.remove("hidden")
+      matchoverWaitingBanner?.classList.add("hidden")
+    } else {
+      endGameBtn?.classList.add("hidden")
+      matchoverWaitingBanner?.classList.remove("hidden")
     }
   }
 
-  backToLobbyBtn?.addEventListener("click", () => {
-    // Clear session and return
-    clearSession()
-    sessionStorage.clear()
-    window.location.href = "/"
+  function syncGroupLabels(state: any) {
+    const matchup = state.currentMatchup ?? state.rounds?.[state.rounds.length - 1]?.matchup
+    const groupA = matchup?.groupA ?? 1
+    const groupB = matchup?.groupB ?? 2
+    headerGroupA.textContent = `第 ${groupA} 組`
+    headerGroupB.textContent = `第 ${groupB} 組`
+    teamATitle.textContent = `第 ${groupA} 組`
+    teamBTitle.textContent = `第 ${groupB} 組`
+    resultGroupATitle.textContent = `第 ${groupA} 組`
+    resultGroupBTitle.textContent = `第 ${groupB} 組`
+    roomInfo.textContent =
+      state.matchMode === "test"
+        ? `測試場對戰：第 ${groupA} 組 vs 第 ${groupB} 組`
+        : `正式場對戰：第 ${groupA} 組 vs 第 ${groupB} 組`
+  }
+
+  endGameBtn?.addEventListener("click", () => {
+    socket.emit("host:end_game", {}, (res: any) => {
+      if (!res.ok) {
+        alert(`無法結束本場對戰：${res.error}`)
+      }
+    })
   })
 
   liveQuestionsInput?.addEventListener("input", () => (liveQuestionsDirty = true))
@@ -916,6 +975,15 @@ import ZapIcon from "~icons/lucide/zap"
     socket.emit("host:set_topic", { topic }, (res: any) => {
       if (!res.ok) setLiveHostStatus(`指定題目失敗：${res.error}`, true)
       else setLiveHostStatus("下一題已指定")
+    })
+  })
+
+  hostForceEndGameBtn?.addEventListener("click", () => {
+    const confirmed = confirm("確認要直接結束這一組遊戲嗎？目前進度將不再繼續。")
+    if (!confirmed) return
+    socket.emit("host:force_end_game", {}, (res: any) => {
+      if (!res.ok) setLiveHostStatus(`無法強制結束本組：${res.error}`, true)
+      else setLiveHostStatus("已強制結束這一組遊戲")
     })
   })
 

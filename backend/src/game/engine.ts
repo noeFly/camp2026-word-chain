@@ -6,14 +6,24 @@ import {
   appendSegment,
   applyJudge,
   bothTeamsDone,
+  currentMatchup,
   createRoom,
   isMatchOver,
   matchWinner,
+  normalizeMatchups,
   startRound,
   timeoutSegment,
   validateSubmit,
 } from './rules.js';
-import type { EventLogEntry, Player, RoomRules, RoomState, TeamId } from '../types/index.js';
+import type {
+  EventLogEntry,
+  GroupMatchup,
+  MatchMode,
+  Player,
+  RoomRules,
+  RoomState,
+  TeamId,
+} from '../types/index.js';
 
 const r = (id: string) => id; // global room
 const teamRoom = (id: string, t: TeamId) => `${id}:t:${t}`;
@@ -23,6 +33,7 @@ const obsRoom = (id: string) => `${id}:obs`;
 export class GameEngine {
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private pausedRemaining = new Map<string, number>();
+  private judgeToken = 0;
   private constructor(
     public state: RoomState,
     private readonly io: Server,
@@ -46,6 +57,12 @@ export class GameEngine {
     };
     state.questions ??= [];
     state.nextTopic ??= null;
+    state.matchMode ??= 'formal';
+    state.currentGameNumber ??= 0;
+    state.matchupCursor ??= 0;
+    state.activeMatchup ??= null;
+    state.matchups ??= normalizeMatchups(state.matchMode);
+    state.nextMatchup ??= null;
     const players = await repo.loadPlayers(state.roomId);
     const eng = new GameEngine(state, io, new Map(players.map((p) => [p.playerId, p])));
     if (!state.paused) eng.scheduleAll();
@@ -54,6 +71,7 @@ export class GameEngine {
 
   // ---------- players ----------
   async addPlayer(p: Player): Promise<void> {
+    if (p.team) await this.clearTeamHolder(p.team, p.playerId);
     this.players.set(p.playerId, p);
     await repo.savePlayer(this.state.roomId, p);
     await this.log({ ts: Date.now(), type: 'player_join', team: p.team ?? undefined });
@@ -78,7 +96,9 @@ export class GameEngine {
     const p = this.players.get(playerId);
     if (!p) return false;
 
+    if (team) await this.clearTeamHolder(team, playerId);
     p.team = team;
+    p.groupNumber = team ? this.groupNumberForTeam(team) : null;
     await repo.savePlayer(this.state.roomId, p);
     this.moveSocketToTeam(p.socketId, team);
     await this.log({ ts: Date.now(), type: 'host_action', detail: { assignTeam: { playerId, team } } });
@@ -87,6 +107,22 @@ export class GameEngine {
     if (p.socketId) {
       this.io.to(p.socketId).emit('room:state', team ? this.playerSnapshot(team) : this.fullSnapshot());
     }
+    return true;
+  }
+
+  async removePlayer(playerId: string): Promise<boolean> {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+
+    this.players.delete(playerId);
+    await repo.deletePlayer(this.state.roomId, playerId);
+    this.moveSocketToTeam(player.socketId, null);
+    if (player.socketId) {
+      this.io.to(player.socketId).emit('room:kicked', { playerId });
+      this.io.sockets.sockets.get(player.socketId)?.disconnect(true);
+    }
+    await this.log({ ts: Date.now(), type: 'host_action', detail: { removePlayer: playerId } });
+    this.broadcastPresence();
     return true;
   }
 
@@ -105,10 +141,99 @@ export class GameEngine {
     this.broadcastState();
   }
 
+  async clearHistory(): Promise<void> {
+    this.state.rounds = [];
+    this.state.currentGameNumber = 0;
+    await this.save();
+    await repo.clearEvents(this.state.roomId);
+    await this.log({ ts: Date.now(), type: 'host_action', detail: 'clear_history' });
+    this.broadcastState();
+  }
+
+  async setMatchConfig(matchMode: MatchMode, matchups?: GroupMatchup[]): Promise<void> {
+    this.state.matchMode = matchMode;
+    this.state.currentGameNumber = 0;
+    this.state.matchupCursor = 0;
+    this.state.matchups = normalizeMatchups(matchMode, matchups);
+    if (matchMode !== 'test') this.state.nextMatchup = null;
+    this.state.activeMatchup = null;
+    this.state.round = 0;
+    this.state.score = { A: 0, B: 0 };
+    this.state.phase = 'LOBBY';
+    this.state.phaseEndsAt = null;
+    await this.resetAssignedPlayers();
+    await this.save();
+    await this.log({
+      ts: Date.now(),
+      type: 'host_action',
+      detail: { setMatchConfig: { matchMode, matchups: this.state.matchups } },
+    });
+    this.broadcastState();
+    this.broadcastPresence();
+  }
+
+  async setNextMatchup(matchup: GroupMatchup): Promise<boolean> {
+    if (this.state.matchMode !== 'test') return false;
+    this.state.nextMatchup = matchup;
+    await this.resetAssignedPlayers();
+    await this.save();
+    await this.log({ ts: Date.now(), type: 'host_action', detail: { setNextMatchup: matchup } });
+    this.broadcastState();
+    this.broadcastPresence();
+    return true;
+  }
+
   // ---------- host actions ----------
   async startMatch(): Promise<boolean> {
     if (this.state.phase !== 'LOBBY' && this.state.phase !== 'ROUND_RESULT') return false;
+    if (!this.resolveUpcomingMatchup()) return false;
     await this.toRoundIntro();
+    return true;
+  }
+
+  async endGame(): Promise<boolean> {
+    if (this.state.phase !== 'MATCH_OVER') return false;
+    this.clearTimers();
+    if (this.state.matchMode === 'formal' && this.state.activeMatchup) {
+      this.state.matchupCursor += 1;
+    }
+    this.state.phase = 'LOBBY';
+    this.state.phaseEndsAt = null;
+    this.state.round = 0;
+    this.state.topic = null;
+    this.state.nextTopic = null;
+    this.state.activeMatchup = null;
+    this.state.score = { A: 0, B: 0 };
+    this.state.teams = {
+      A: { currentSeat: 1, segments: [], done: false, turnEndsAt: null },
+      B: { currentSeat: 1, segments: [], done: false, turnEndsAt: null },
+    };
+    await this.resetAssignedPlayers();
+    await this.save();
+    await this.log({ ts: Date.now(), type: 'host_action', detail: 'end_game' });
+    this.broadcastState();
+    this.broadcastPresence();
+    return true;
+  }
+
+  async forceEndCurrentGame(): Promise<boolean> {
+    if (this.state.phase === 'LOBBY') return false;
+    this.clearTimers();
+    this.judgeToken += 1;
+    this.state.phase = 'MATCH_OVER';
+    this.state.phaseEndsAt = null;
+    this.state.paused = false;
+    for (const t of ['A', 'B'] as const) {
+      this.state.teams[t].turnEndsAt = null;
+    }
+    await this.save();
+    await this.log({ ts: Date.now(), type: 'host_action', detail: 'force_end_current_game' });
+    this.io.to(r(this.state.roomId)).emit('match:over', {
+      winner: matchWinner(this.state),
+      finalScore: { ...this.state.score },
+      forced: true,
+    });
+    this.broadcastState();
     return true;
   }
 
@@ -242,7 +367,15 @@ export class GameEngine {
   private async toRoundIntro(): Promise<void> {
     // Topic priority: host's explicit/random pick → random from bank → AI/fallback generator.
     const topic = this.state.nextTopic ?? this.randomQuestion() ?? (await generateTopic());
-    this.state = startRound(this.state, topic);
+    const matchup = this.resolveUpcomingMatchup();
+    if (!matchup) return;
+    if (this.state.phase === 'LOBBY') {
+      this.state.currentGameNumber += 1;
+    }
+    this.state = startRound(this.state, topic, matchup);
+    if (this.state.matchMode === 'test') {
+      this.state.nextMatchup = null;
+    }
     this.state.phase = 'ROUND_INTRO';
     this.state.phaseEndsAt = Date.now() + this.state.rules.introMs;
     await this.save();
@@ -298,11 +431,13 @@ export class GameEngine {
     this.io.to(r(this.state.roomId)).emit('judging:started', { round: this.state.round });
     this.broadcastState();
 
+    const token = ++this.judgeToken;
     const { result, degraded } = await judge({
       topic: this.state.topic ?? '',
       answerA: this.state.teams.A.segments.join(''),
       answerB: this.state.teams.B.segments.join(''),
     });
+    if (token !== this.judgeToken || this.state.phase !== 'JUDGING') return;
     this.state = applyJudge(this.state, result);
     const last = this.state.rounds[this.state.rounds.length - 1]!;
     last.degraded = degraded;
@@ -331,11 +466,7 @@ export class GameEngine {
     });
     this.broadcastState();
 
-    if (isMatchOver(this.state)) {
-      await this.toMatchOver();
-    } else {
-      this.scheduleAll();
-    }
+    if (isMatchOver(this.state)) await this.toMatchOver();
   }
 
   private async toMatchOver(): Promise<void> {
@@ -427,6 +558,7 @@ export class GameEngine {
     return [...this.players.values()].map((p) => ({
       playerId: p.playerId,
       team: p.team, // null = waiting for the host to assign a team
+      groupNumber: p.groupNumber,
       name: p.name,
       connected: p.connected,
     }));
@@ -446,12 +578,18 @@ export class GameEngine {
     return {
       roomId: s.roomId,
       phase: s.phase,
+      currentGameNumber: s.currentGameNumber,
       round: s.round,
       topic: s.topic,
       phaseEndsAt: s.phaseEndsAt,
       paused: s.paused,
       score: s.score,
       rounds: s.rounds,
+      matchMode: s.matchMode,
+      matchupCursor: s.matchupCursor,
+      matchups: s.matchups,
+      nextMatchup: s.nextMatchup,
+      currentMatchup: currentMatchup(s),
       rules: s.rules,
       questions: s.questions,
       nextTopic: s.nextTopic,
@@ -482,6 +620,43 @@ export class GameEngine {
 
   private async save(): Promise<void> {
     await repo.saveRoom(this.state);
+  }
+
+  private async clearTeamHolder(team: TeamId, exceptPlayerId?: string): Promise<void> {
+    for (const player of this.players.values()) {
+      if (player.playerId !== exceptPlayerId && player.team === team) {
+        player.team = null;
+        player.groupNumber = null;
+        await repo.savePlayer(this.state.roomId, player);
+        this.moveSocketToTeam(player.socketId, null);
+        if (player.socketId) this.io.to(player.socketId).emit('room:state', this.fullSnapshot());
+      }
+    }
+  }
+
+  private groupNumberForTeam(team: TeamId): number | null {
+    const matchup = currentMatchup(this.state);
+    if (!matchup) return null;
+    return team === 'A' ? matchup.groupA : matchup.groupB;
+  }
+
+  private resolveUpcomingMatchup(): GroupMatchup | null {
+    if (this.state.phase === 'ROUND_RESULT' && this.state.activeMatchup && !isMatchOver(this.state)) {
+      return this.state.activeMatchup;
+    }
+    if (this.state.matchMode === 'test') return this.state.nextMatchup;
+    return this.state.matchups[this.state.matchupCursor] ?? null;
+  }
+
+  private async resetAssignedPlayers(): Promise<void> {
+    for (const player of this.players.values()) {
+      if (!player.team && player.groupNumber == null) continue;
+      player.team = null;
+      player.groupNumber = null;
+      await repo.savePlayer(this.state.roomId, player);
+      this.moveSocketToTeam(player.socketId, null);
+      if (player.socketId) this.io.to(player.socketId).emit('room:state', this.fullSnapshot());
+    }
   }
 
   private async log(entry: EventLogEntry): Promise<void> {
