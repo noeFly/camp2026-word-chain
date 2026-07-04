@@ -10,9 +10,19 @@ export function getBackendCandidates(): string[] {
   }
 
   if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location
+    const { protocol, hostname, host, port } = window.location
+    const isDefaultPort = port === "" || port === "80" || port === "443"
+
+    if (isDefaultPort) {
+      candidates.add(`${protocol}//${host}`)
+    }
+
     candidates.add(`${protocol}//${hostname}:3002`)
     candidates.add(`${protocol}//${hostname}:3001`)
+
+    if (!isDefaultPort) {
+      candidates.add(`${protocol}//${host}`)
+    }
   }
 
   candidates.add("http://127.0.0.1:3002")
