@@ -3,12 +3,15 @@ services:
     build:
       context: ./frontend
       args:
-        PUBLIC_BACKEND_URL: ${PUBLIC_BACKEND_URL}
+        PUBLIC_BACKEND_URL: ${PUBLIC_BACKEND_URL:-}
     restart: unless-stopped
+    ports:
+      - "3000:80"
     expose:
       - "80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   backend:
     build:
@@ -16,6 +19,13 @@ services:
     restart: unless-stopped
     expose:
       - "3001"
+    networks:
+      default:
+        aliases:
+          - word-chain-backend
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
@@ -28,12 +38,28 @@ services:
       INTRO_MS: ${INTRO_MS:-30000}
       TURN_MS: ${TURN_MS:-20000}
       RESULT_MS: ${RESULT_MS:-30000}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   redis:
     image: redis:8-alpine
     restart: unless-stopped
     expose:
       - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     volumes:
       - redis-data:/data
 

@@ -182,6 +182,14 @@ export function registerGateway(io: Server): RoomManager {
       ack?.({ ok: true });
     });
 
+    socket.on('host:advance_seat', async (_p: unknown, ack?: Ack) => {
+      const eng = await requireHost(manager, data);
+      if (!eng) return fail(ack, 'FORBIDDEN');
+      const ok = await eng.advanceSeat();
+      if (!ok) return fail(ack, 'WRONG_PHASE');
+      ack?.({ ok: true });
+    });
+
     socket.on('host:force_end_game', async (_p: unknown, ack?: Ack) => {
       const eng = await requireHost(manager, data);
       if (!eng) return fail(ack, 'FORBIDDEN');

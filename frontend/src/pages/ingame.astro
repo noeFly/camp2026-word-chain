@@ -213,6 +213,13 @@ import ZapIcon from "~icons/lucide/zap"
       </div>
     </div>
 
+    <div class="flex justify-center">
+      <button id="host-next-seat-btn" class="btn btn-primary hidden px-10">
+        <PlayIcon class="mr-1 h-5 w-5" />
+        <span>進入下一棒</span>
+      </button>
+    </div>
+
     <!-- Submission Box (Only active for current player's turn) -->
     <div
       id="submit-panel"
@@ -579,6 +586,7 @@ import ZapIcon from "~icons/lucide/zap"
   const timerTeamB = document.getElementById("timer-team-b") as HTMLDivElement
   const skipTeamABtn = document.getElementById("skip-team-a-btn") as HTMLButtonElement
   const skipTeamBBtn = document.getElementById("skip-team-b-btn") as HTMLButtonElement
+  const hostNextSeatBtn = document.getElementById("host-next-seat-btn") as HTMLButtonElement
   const answerDivA = document.getElementById("team-a-answer") as HTMLDivElement
   const answerDivB = document.getElementById("team-b-answer") as HTMLDivElement
 
@@ -594,20 +602,32 @@ import ZapIcon from "~icons/lucide/zap"
   function renderChaining(state: any) {
     phaseChaining?.classList.remove("hidden")
     if (chainingTopic) chainingTopic.textContent = state.topic
+    timerTeamA?.classList.add("hidden")
+    timerTeamB?.classList.add("hidden")
 
-    // Show host skipping control
     if (role === "host") {
-      skipTeamABtn?.classList.remove("hidden")
-      skipTeamBBtn?.classList.remove("hidden")
+      if (!state.teams.A.done && !hasSubmittedCurrentSeat(state.teams.A)) {
+        skipTeamABtn?.classList.remove("hidden")
+      } else {
+        skipTeamABtn?.classList.add("hidden")
+      }
+      if (!state.teams.B.done && !hasSubmittedCurrentSeat(state.teams.B)) {
+        skipTeamBBtn?.classList.remove("hidden")
+      } else {
+        skipTeamBBtn?.classList.add("hidden")
+      }
+      if (canHostAdvanceSeat(state)) {
+        hostNextSeatBtn?.classList.remove("hidden")
+      } else {
+        hostNextSeatBtn?.classList.add("hidden")
+      }
+    } else {
+      hostNextSeatBtn?.classList.add("hidden")
     }
 
     // Render team chain blocks
     populateChainList("A", state.teams.A, chainListA, "info", state.rules?.seats ?? 6)
     populateChainList("B", state.teams.B, chainListB, "secondary", state.rules?.seats ?? 6)
-
-    // Sync Turn timers (20s TurnMs is standard) — freeze while paused
-    syncTurnTimer("A", state.teams.A, timerTeamA, state.paused)
-    syncTurnTimer("B", state.teams.B, timerTeamB, state.paused)
 
     if (state.paused) {
       answerInput.setAttribute("disabled", "true")
@@ -640,7 +660,7 @@ import ZapIcon from "~icons/lucide/zap"
       else answerDivA?.remove()
 
       const currentTeamState = state.teams[myTeam]
-      const isMyTurn = !currentTeamState.done
+      const isMyTurn = !currentTeamState.done && !hasSubmittedCurrentSeat(currentTeamState)
 
       if (isMyTurn) {
         // Activate Submission Row
@@ -663,6 +683,8 @@ import ZapIcon from "~icons/lucide/zap"
 
         if (currentTeamState.done) {
           submitStatusText.textContent = "恭喜！您小隊的謎語接龍已全數完成！等待評審階段開始中 🏁"
+        } else if (hasSubmittedCurrentSeat(currentTeamState)) {
+          submitStatusText.textContent = "本棒次已送出，等待另一隊完成並由主持人切換下一棒。"
         } else {
           submitStatusText.textContent = "您小隊正在等待下一棒作答中... ⏳"
         }
@@ -671,7 +693,9 @@ import ZapIcon from "~icons/lucide/zap"
       // Host / Observer
       submitStatusBanner?.classList.remove("hidden")
       submitActionRow?.classList.add("hidden")
-      submitStatusText.textContent = "目前雙方正在進行緊張刺激的接龍比賽，可由右方控制鍵跳過棒次。"
+      submitStatusText.textContent = canHostAdvanceSeat(state)
+        ? "兩隊都已完成本棒次，請由主持人決定進入下一棒。"
+        : "目前雙方正在進行接龍，可由主持人補空棒或等待雙方送出。"
     }
   }
 
@@ -726,49 +750,16 @@ import ZapIcon from "~icons/lucide/zap"
     }
   }
 
-  function syncTurnTimer(
-    teamId: "A" | "B",
-    teamState: any,
-    timerBadge: HTMLDivElement,
-    paused: boolean
-  ) {
-    if (!timerBadge) return
+  function hasSubmittedCurrentSeat(teamState: any) {
+    return (teamState?.segments?.length ?? 0) >= (teamState?.currentSeat ?? 0)
+  }
 
-    if (teamState.done || !teamState.turnEndsAt) {
-      timerBadge.classList.add("hidden")
-      return
-    }
-
-    timerBadge.classList.remove("hidden")
-    const endsAt = teamState.turnEndsAt
-
-    // Setup a mini animation frame/interval specifically for turn countdowns
-    const update = () => {
-      const rem = Math.max(0, endsAt - Date.now())
-      const sec = Math.ceil(rem / 1000)
-      timerBadge.textContent = paused ? `${sec}s (暫停)` : `${sec}s 剩餘`
-
-      if (paused) {
-        timerBadge.className = "badge badge-warning py-2.5 text-xs font-mono font-bold"
-      } else if (rem <= 5000) {
-        timerBadge.className = "badge badge-error py-2.5 text-xs font-mono font-bold animate-pulse"
-      } else {
-        timerBadge.className = `badge badge-${teamId === "A" ? "info" : "secondary"} py-2.5 text-xs font-mono font-bold animate-pulse`
-      }
-    }
-
-    // While paused the deadline is frozen on the server — render once and do NOT tick.
-    update()
-    if (paused) return
-
-    // We can run these concurrently in a local animation or let the parent update handling cover it
-    const localTimer = setInterval(update, 500)
-    // Bind to the countdownTimer clear sequence
-    const origClear = clearActiveTimer
-    clearActiveTimer = () => {
-      clearInterval(localTimer)
-      origClear()
-    }
+  function canHostAdvanceSeat(state: any) {
+    return (
+      state?.phase === "CHAINING" &&
+      hasSubmittedCurrentSeat(state.teams.A) &&
+      hasSubmittedCurrentSeat(state.teams.B)
+    )
   }
 
   // Answer Submission Event
@@ -1061,6 +1052,12 @@ import ZapIcon from "~icons/lucide/zap"
         if (!res.ok) alert(`操作失敗：${res.error}`)
       })
     }
+  })
+
+  hostNextSeatBtn?.addEventListener("click", () => {
+    socket.emit("host:advance_seat", {}, (res: any) => {
+      if (!res.ok) alert(`無法進入下一棒：${res.error}`)
+    })
   })
 
   skipTeamABtn?.addEventListener("click", () => {

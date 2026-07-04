@@ -100,24 +100,58 @@ export const answerOf = (t: TeamState): string => t.segments.join('');
 export const bothTeamsDone = (state: RoomState): boolean =>
   state.teams.A.done && state.teams.B.done;
 
-/** Append a validated segment and advance the seat. Caller must validate first. */
+export const hasSubmittedCurrentSeat = (team: TeamState): boolean =>
+  team.segments.length >= team.currentSeat;
+
+export const areBothTeamsReadyForNextSeat = (state: RoomState): boolean =>
+  hasSubmittedCurrentSeat(state.teams.A) && hasSubmittedCurrentSeat(state.teams.B);
+
+export const canAdvanceSeatManually = (state: RoomState): boolean =>
+  areBothTeamsReadyForNextSeat(state);
+
+/** Append a validated segment for the current seat. Caller must validate first. */
 export function appendSegment(state: RoomState, team: TeamId, text: string): RoomState {
   const prev = state.teams[team];
   const segments = [...prev.segments, text];
-  const next: TeamState = advance({ ...prev, segments }, state.rules.seats);
-  return { ...state, teams: { ...state.teams, [team]: next } };
+  return {
+    ...state,
+    teams: {
+      ...state.teams,
+      [team]: markDone({ ...prev, segments }, state.rules.seats),
+    },
+  };
 }
 
-/** Record a forfeit (empty) segment for the current seat and advance. */
+/** Record a forfeit (empty) segment for the current seat. */
 export function timeoutSegment(state: RoomState, team: TeamId): RoomState {
   const prev = state.teams[team];
   const segments = [...prev.segments, ''];
-  const next = advance({ ...prev, segments }, state.rules.seats);
-  return { ...state, teams: { ...state.teams, [team]: next } };
+  return {
+    ...state,
+    teams: {
+      ...state.teams,
+      [team]: markDone({ ...prev, segments }, state.rules.seats),
+    },
+  };
+}
+
+export function advanceSeatWhenReady(state: RoomState): RoomState {
+  if (!areBothTeamsReadyForNextSeat(state)) return state;
+  return {
+    ...state,
+    teams: {
+      A: advance(state.teams.A, state.rules.seats),
+      B: advance(state.teams.B, state.rules.seats),
+    },
+  };
+}
+
+function markDone(t: TeamState, seats: number): TeamState {
+  return { ...t, done: t.segments.length >= seats };
 }
 
 function advance(t: TeamState, seats: number): TeamState {
-  const seat = t.currentSeat + 1;
+  const seat = Math.min(t.currentSeat + 1, seats + 1);
   return { ...t, currentSeat: seat, done: t.segments.length >= seats };
 }
 
@@ -130,6 +164,7 @@ export function validateSubmit(
   text: string,
 ): SubmitError | null {
   if (team.done || seat !== team.currentSeat) return 'NOT_YOUR_TURN';
+  if (hasSubmittedCurrentSeat(team)) return 'NOT_YOUR_TURN';
   if (charCount(text) !== SEGMENT_LEN) return 'BAD_LENGTH';
   return null;
 }

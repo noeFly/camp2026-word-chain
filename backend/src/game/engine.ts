@@ -3,10 +3,13 @@ import { config, SEATS, WINS_TO_TAKE_MATCH } from '../config.js';
 import * as repo from '../state/roomRepo.js';
 import { generateTopic, judge } from '../ai/gemini.js';
 import {
+  advanceSeatWhenReady,
   appendSegment,
   applyJudge,
   bothTeamsDone,
+  canAdvanceSeatManually,
   currentMatchup,
+  hasSubmittedCurrentSeat,
   createRoom,
   isMatchOver,
   matchWinner,
@@ -310,11 +313,6 @@ export class GameEngine {
         this.state.phaseEndsAt = now + rules.introMs;
       } else if (this.state.phase === 'ROUND_RESULT' && this.state.phaseEndsAt) {
         this.state.phaseEndsAt = now + rules.resultMs;
-      } else if (this.state.phase === 'CHAINING') {
-        for (const t of ['A', 'B'] as const) {
-          const team = this.state.teams[t];
-          if (!team.done && team.turnEndsAt) team.turnEndsAt = now + rules.turnMs;
-        }
       }
       this.scheduleAll();
     }
@@ -324,8 +322,24 @@ export class GameEngine {
   }
 
   async skipTurn(team: TeamId): Promise<boolean> {
-    if (this.state.phase !== 'CHAINING' || this.state.teams[team].done) return false;
+    if (this.state.phase !== 'CHAINING' || this.state.teams[team].done || hasSubmittedCurrentSeat(this.state.teams[team]))
+      return false;
     await this.handleTurnTimeout(team, 'host_skip');
+    return true;
+  }
+
+  async advanceSeat(): Promise<boolean> {
+    if (this.state.phase !== 'CHAINING' || !canAdvanceSeatManually(this.state)) return false;
+    this.state = advanceSeatWhenReady(this.state);
+    await this.log({ ts: Date.now(), type: 'host_action', detail: 'advance_seat' });
+    if (bothTeamsDone(this.state)) {
+      await this.toJudging();
+    } else {
+      await this.save();
+      this.emitTurnChanged('A');
+      this.emitTurnChanged('B');
+      this.broadcastState();
+    }
     return true;
   }
 
@@ -344,7 +358,7 @@ export class GameEngine {
     if (err) return { ok: false, code: err };
 
     this.state = appendSegment(this.state, p.team, text);
-    this.setTurnDeadline(p.team);
+    this.clearTurnDeadline(p.team);
     await this.log({ ts: Date.now(), type: 'segment_submitted', team: p.team, seat, detail: text });
     this.io.to(teamRoom(this.state.roomId, p.team)).emit('segment:accepted', {
       team: p.team,
@@ -352,14 +366,9 @@ export class GameEngine {
       text,
     });
 
-    if (bothTeamsDone(this.state)) {
-      await this.toJudging();
-    } else {
-      this.scheduleAll();
-      await this.save();
-      this.emitTurnChanged(p.team);
-      this.broadcastState();
-    }
+    await this.save();
+    this.emitTurnChanged(p.team);
+    this.broadcastState();
     return { ok: true };
   }
 
@@ -392,11 +401,10 @@ export class GameEngine {
   private async beginChaining(): Promise<void> {
     this.state.phase = 'CHAINING';
     this.state.phaseEndsAt = null;
-    this.setTurnDeadline('A');
-    this.setTurnDeadline('B');
+    this.state.teams.A.turnEndsAt = null;
+    this.state.teams.B.turnEndsAt = null;
     await this.save();
     await this.log({ ts: Date.now(), type: 'phase_change', detail: 'CHAINING' });
-    this.scheduleAll();
     this.emitTurnChanged('A');
     this.emitTurnChanged('B');
     this.broadcastState();
@@ -404,21 +412,16 @@ export class GameEngine {
 
   private async handleTurnTimeout(team: TeamId, kind: 'timeout' | 'host_skip' = 'timeout'): Promise<void> {
     this.state = timeoutSegment(this.state, team);
-    this.setTurnDeadline(team);
+    this.clearTurnDeadline(team);
     await this.log({
       ts: Date.now(),
       type: kind === 'timeout' ? 'turn_timeout' : 'host_action',
       team,
       detail: kind,
     });
-    if (bothTeamsDone(this.state)) {
-      await this.toJudging();
-    } else {
-      this.scheduleAll();
-      await this.save();
-      this.emitTurnChanged(team);
-      this.broadcastState();
-    }
+    await this.save();
+    this.emitTurnChanged(team);
+    this.broadcastState();
   }
 
   private async toJudging(): Promise<void> {
@@ -483,9 +486,8 @@ export class GameEngine {
   }
 
   // ---------- timers ----------
-  private setTurnDeadline(team: TeamId): void {
-    const t = this.state.teams[team];
-    t.turnEndsAt = t.done ? null : Date.now() + this.state.rules.turnMs;
+  private clearTurnDeadline(team: TeamId): void {
+    this.state.teams[team].turnEndsAt = null;
   }
 
   private activeDeadlines(): Array<[string, number]> {
@@ -493,10 +495,6 @@ export class GameEngine {
     const s = this.state;
     if ((s.phase === 'ROUND_INTRO' || s.phase === 'ROUND_RESULT') && s.phaseEndsAt) {
       out.push(['phase', s.phaseEndsAt]);
-    }
-    if (s.phase === 'CHAINING') {
-      if (!s.teams.A.done && s.teams.A.turnEndsAt) out.push(['turn:A', s.teams.A.turnEndsAt]);
-      if (!s.teams.B.done && s.teams.B.turnEndsAt) out.push(['turn:B', s.teams.B.turnEndsAt]);
     }
     return out;
   }
@@ -519,8 +517,6 @@ export class GameEngine {
     const phase = this.state.phase;
     if (key === 'phase' && phase === 'ROUND_INTRO') return void this.beginChaining();
     if (key === 'phase' && phase === 'ROUND_RESULT') return void this.toRoundIntro();
-    if (key === 'turn:A' && phase === 'CHAINING') return void this.handleTurnTimeout('A');
-    if (key === 'turn:B' && phase === 'CHAINING') return void this.handleTurnTimeout('B');
   }
 
   private clearTimers(): void {

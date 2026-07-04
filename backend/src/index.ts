@@ -26,7 +26,7 @@ async function main() {
       res.end(JSON.stringify({ ok: true, ts: Date.now() }));
       return;
     }
-    const match = req.url?.match(/^\/rooms\/([^/]+)$/);
+    const match = req.url?.match(/^\/(?:api\/)?rooms\/([^/]+)$/);
     if (req.method === 'GET' && match) {
       const roomId = decodeURIComponent(match[1]!);
       void repo.loadRoom(roomId).then((state) => {
